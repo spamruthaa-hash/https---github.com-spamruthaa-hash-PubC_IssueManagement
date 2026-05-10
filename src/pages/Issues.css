@@ -1,0 +1,221 @@
+.issues-container {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #FFFFFF;
+}
+
+/* Page Header */
+.issues-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.issues-title {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #35424d;
+  margin: 0;
+  line-height: normal;
+}
+
+/* Upload Schedule Button */
+.upload-schedule-button-wrapper {
+  position: relative;
+}
+
+.upload-schedule-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #f6f7f7;
+  border: none;
+  border-radius: 4px;
+  cursor: not-allowed;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.upload-schedule-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9aa1a6;
+  line-height: 20px;
+}
+
+.upcoming-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  background: #fbfbfb;
+  border: 1px solid #eceeee;
+  border-radius: 20px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 12px;
+  font-style: italic;
+  color: #868e94;
+  line-height: 16px;
+}
+
+/* Tooltip */
+.schedule-tooltip {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: 403px;
+  z-index: 1000;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-arrow {
+  width: 48px;
+  height: 5px;
+  margin-left: auto;
+  margin-right: 48px;
+  background: url("data:image/svg+xml,%3Csvg width='48' height='5' viewBox='0 0 48 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M24 0L29.0718 5H18.9282L24 0Z' fill='%2335424d'/%3E%3C/svg%3E") no-repeat center;
+  background-size: contain;
+}
+
+.tooltip-content {
+  background: #35424d;
+  border-radius: 4px;
+  padding: 8px 12px 12px;
+  box-shadow: 1px 1px 1.5px rgba(0, 0, 0, 0.1), 
+              4px 5px 3px rgba(0, 0, 0, 0.09),
+              8px 12px 4.5px rgba(0, 0, 0, 0.05),
+              15px 21px 5px rgba(0, 0, 0, 0.01);
+}
+
+.tooltip-main {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: white;
+  line-height: 20px;
+  margin: 0 0 4px 0;
+}
+
+.tooltip-sub {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #dddddd;
+  line-height: 16px;
+  margin: 0;
+}
+
+/* Empty State */
+.issues-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.empty-state-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 343px;
+}
+
+.empty-state-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+}
+
+.empty-state-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  width: 100%;
+}
+
+.empty-state-title {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2a353e;
+  line-height: 28px;
+  margin: 0;
+}
+
+.empty-state-description {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: normal;
+  margin: 0;
+}
+
+/* Create Issue Button */
+.create-issue-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px 8px 12px;
+  background: #1c40ca;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+  transition: background 0.15s ease;
+}
+
+.create-issue-button:hover {
+  background: #163499;
+}
+
+.create-issue-button:active {
+  background: #0f2670;
+}
+
+.create-issue-button svg {
+  flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .issues-container {
+    padding: 12px;
+  }
+
+  .empty-state-content {
+    width: 100%;
+    max-width: 343px;
+  }
+
+  .schedule-tooltip {
+    width: 300px;
+  }
+}

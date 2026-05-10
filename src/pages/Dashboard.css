@@ -1,0 +1,45 @@
+.dashboard-container {
+  min-height: 100vh;
+  background: #F9FAFB;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-layout {
+  display: flex;
+  flex: 1;
+}
+
+.dashboard-main {
+  flex: 1;
+  overflow-y: auto;
+  background: #FFFFFF;
+}
+
+.dashboard-content {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-content h2 {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.dashboard-content p {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  color: #6B7280;
+  margin-bottom: 12px;
+}
+
+.dashboard-content .status-text {
+  font-size: 14px;
+  color: #9CA3AF;
+  margin-top: 24px;
+  font-style: italic;
+}
