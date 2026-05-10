@@ -33,8 +33,8 @@ const Issues = ({ onLogout }: IssuesProps) => {
   };
 
   const handleSubmitIssue = (issueData: IssueFormData) => {
-    console.log('Issue created:', issueData);
-    // TODO: Implement issue creation logic
+    console.log('Issue created:', issueData, 'lineupAction:', issueData.lineupAction);
+    // TODO: proceed | save-draft | confirm-lineup | create-issue (Review step)
   };
 
   return (
