@@ -95,6 +95,7 @@ const Issues = ({ onLogout }: IssuesProps) => {
     }
 
     const journalAcronym = getJournalAcronym(data.journal);
+    const createdAt = new Date().toISOString();
     const newIssue: Issue = {
       id: generateId(),
       journalId: data.journal,
@@ -108,9 +109,11 @@ const Issues = ({ onLogout }: IssuesProps) => {
       issueType: data.issueType,
       outputFormat: data.outputFormat,
       assignedArticleIds: (data.selectedArticles ?? []).map(a => a.id),
+      articleLineupConfirmedAt: data.lineupStatus === 'confirm' ? createdAt : undefined,
+      articleLineupConfirmedBy: data.lineupStatus === 'confirm' ? 'John Doe' : undefined,
       milestone: milestoneFromLineupStatus(data.lineupStatus),
       status: 'in-progress',
-      createdAt: new Date().toISOString(),
+      createdAt,
     };
 
     addIssue(newIssue);

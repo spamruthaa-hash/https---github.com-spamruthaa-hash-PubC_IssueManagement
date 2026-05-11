@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import ArticleLineupModal from '../components/ArticleLineupModal';
+import EditIssueDetailsModal from '../components/EditIssueDetailsModal';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Toast, { ToastData } from '../components/Toast';
@@ -37,6 +39,9 @@ const OUTPUT_FORMAT_LABEL: Record<IssueOutputFormat, string> = {
   both: 'Print & Online',
 };
 
+const CURRENT_USER_NAME = 'John Doe';
+const ESTIMATED_MILESTONE_DAYS = 5;
+
 const getValidDate = (value: string): Date => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
@@ -48,8 +53,60 @@ const addDays = (date: Date, days: number): Date => {
   return next;
 };
 
+const getDurationLabel = (start: Date, end: Date): string => {
+  const milliseconds = Math.max(0, end.getTime() - start.getTime());
+  const minute = 1000 * 60;
+  const hour = minute * 60;
+  const day = hour * 24;
+
+  if (milliseconds < minute) return 'Less than 1 minute';
+
+  const parts: string[] = [];
+  const days = Math.floor(milliseconds / day);
+  const hours = Math.floor((milliseconds % day) / hour);
+  const minutes = Math.floor((milliseconds % hour) / minute);
+
+  if (days > 0) parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hr' : 'hrs'}`);
+  if (days === 0 && minutes > 0) {
+    parts.push(`${minutes} min`);
+  }
+
+  return parts.slice(0, 2).join(' ');
+};
+
 const statusLabel = (status: Issue['status']): string =>
   status === 'completed' ? 'Completed' : 'In progress';
+
+const InProgressStatusIcon = () => (
+  <svg
+    className="issue-status-pill-icon"
+    width="14"
+    height="14"
+    viewBox="0 0 14 14"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden
+  >
+    <mask
+      id="issue-status-inprogress-mask"
+      style={{ maskType: 'alpha' }}
+      maskUnits="userSpaceOnUse"
+      x="0"
+      y="0"
+      width="14"
+      height="14"
+    >
+      <rect width="14" height="14" fill="#D9D9D9" />
+    </mask>
+    <g mask="url(#issue-status-inprogress-mask)">
+      <path
+        d="M2.47925 10.675C2.1098 10.2375 1.81328 9.75622 1.58966 9.23122C1.36605 8.70622 1.22508 8.15691 1.16675 7.5833H2.36258C2.42091 8.00136 2.52786 8.4024 2.68341 8.78643C2.83897 9.17045 3.04314 9.52775 3.29591 9.8583L2.47925 10.675ZM1.16675 6.41663C1.24453 5.84302 1.39036 5.29372 1.60425 4.76872C1.81814 4.24372 2.1098 3.76247 2.47925 3.32497L3.29591 4.14163C3.04314 4.47219 2.83897 4.82948 2.68341 5.21351C2.52786 5.59754 2.42091 5.99858 2.36258 6.41663H1.16675ZM6.38758 12.8041C5.81397 12.7458 5.2671 12.6073 4.74696 12.3885C4.22682 12.1698 3.74314 11.8805 3.29591 11.5208L4.11258 10.675C4.45286 10.9277 4.81258 11.1368 5.19175 11.3021C5.57092 11.4673 5.96953 11.5791 6.38758 11.6375V12.8041ZM4.14175 3.32497L3.29591 2.47913C3.75286 2.11941 4.24383 1.83018 4.76883 1.61143C5.29383 1.39268 5.84314 1.25413 6.41675 1.1958V2.36247C5.99869 2.4208 5.59765 2.53261 5.21362 2.69788C4.8296 2.86316 4.4723 3.07219 4.14175 3.32497ZM7.55425 12.8041V11.6375C7.98203 11.5791 8.38793 11.4698 8.77196 11.3093C9.15598 11.1489 9.51814 10.9375 9.85842 10.675L10.7042 11.5208C10.2473 11.8902 9.7539 12.1819 9.22404 12.3958C8.69418 12.6097 8.13758 12.7458 7.55425 12.8041ZM9.88758 3.32497C9.5473 3.07219 9.18272 2.86316 8.79383 2.69788C8.40494 2.53261 8.00147 2.4208 7.58342 2.36247V1.1958C8.15703 1.25413 8.70876 1.39268 9.23862 1.61143C9.76849 1.83018 10.257 2.11941 10.7042 2.47913L9.88758 3.32497ZM11.5209 10.675L10.7042 9.8583C10.957 9.52775 11.1612 9.17045 11.3167 8.78643C11.4723 8.4024 11.5792 8.00136 11.6376 7.5833H12.8334C12.7556 8.15691 12.6098 8.70622 12.3959 9.23122C12.182 9.75622 11.8904 10.2375 11.5209 10.675ZM11.6376 6.41663C11.5792 5.99858 11.4723 5.59754 11.3167 5.21351C11.1612 4.82948 10.957 4.47219 10.7042 4.14163L11.5209 3.32497C11.8904 3.76247 12.1869 4.24372 12.4105 4.76872C12.6341 5.29372 12.7751 5.84302 12.8334 6.41663H11.6376Z"
+        fill="#0566ED"
+      />
+    </g>
+  </svg>
+);
 
 const getActiveMilestoneIndex = (issue: Issue, milestones: DetailMilestone[]): number => {
   const normalizedCurrent = issue.milestone === 'Final Review' ? 'Folio Review' : issue.milestone;
@@ -60,9 +117,11 @@ const getActiveMilestoneIndex = (issue: Issue, milestones: DetailMilestone[]): n
 const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showLineupModal, setShowLineupModal] = useState(false);
   const navigate = useNavigate();
   const { issueId } = useParams();
-  const { issues } = useIssues();
+  const { issues, updateIssue } = useIssues();
 
   const issue = issues.find(i => i.id === issueId);
 
@@ -74,10 +133,43 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
   const dismissToast = () => setToast(null);
 
   const handleEditDetails = () => {
+    setShowEditModal(true);
+  };
+
+  const handleOpenLineup = () => {
+    setShowLineupModal(true);
+  };
+
+  const handleArrangeFolio = () => {
     setToast({
-      id: `edit-${Date.now()}`,
+      id: `folio-arrange-${Date.now()}`,
       variant: 'info',
-      message: 'Editing issue details is coming soon.',
+      message: 'Folio arrangement is coming soon.',
+    });
+  };
+
+  const handleConfirmLineup = (id: string, articleIds: string[]) => {
+    updateIssue(id, {
+      assignedArticleIds: articleIds,
+      articleLineupConfirmedAt: new Date().toISOString(),
+      articleLineupConfirmedBy: CURRENT_USER_NAME,
+      milestone: articleIds.length > 0 ? 'Folio Creation' : 'Article Lineup',
+    });
+    setToast({
+      id: `lineup-confirmed-${Date.now()}`,
+      variant: 'success',
+      message: articleIds.length > 0
+        ? 'Article lineup confirmed successfully.'
+        : 'Article lineup saved with no assigned articles.',
+    });
+  };
+
+  const handleSaveIssueDetails = (id: string, updates: Partial<Issue>) => {
+    updateIssue(id, updates);
+    setToast({
+      id: `issue-updated-${Date.now()}`,
+      variant: 'success',
+      message: 'Issue details updated successfully.',
     });
   };
 
@@ -86,14 +178,30 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
     const milestones = OUTPUT_FORMAT_MILESTONES[issue.outputFormat];
     const base = getValidDate(issue.createdAt);
     const activeIndex = getActiveMilestoneIndex(issue, milestones);
+    const hasLineupHistory = Boolean(issue.articleLineupConfirmedAt) || activeIndex > 0;
+    let nextStart = base;
 
     return milestones.map((label, index) => {
-      const start = addDays(base, index * 5);
-      const completion = addDays(base, (index + 1) * 5);
+      const isArticleLineup = label === 'Article Lineup';
+      const confirmedAt = isArticleLineup && hasLineupHistory
+        ? issue.articleLineupConfirmedAt ?? issue.createdAt
+        : undefined;
+      const start = nextStart;
+      const confirmedEnd = confirmedAt ? getValidDate(confirmedAt) : undefined;
+      const estimatedCompletion = addDays(start, ESTIMATED_MILESTONE_DAYS);
+      const completion = confirmedEnd ?? estimatedCompletion;
+
+      nextStart = completion;
+
       return {
         label,
         start,
         completion,
+        duration: getDurationLabel(start, completion),
+        confirmedAt,
+        confirmedBy: isArticleLineup && hasLineupHistory
+          ? issue.articleLineupConfirmedBy ?? CURRENT_USER_NAME
+          : undefined,
         state: index < activeIndex ? 'completed' : index === activeIndex ? 'active' : 'upcoming',
       };
     });
@@ -134,7 +242,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                       <span aria-hidden>›</span>
                     </nav>
                     <h1 className="issue-details-title">
-                      {issue.journalAcronym} - {issue.volume}/{issue.issue}
+                      {issue.issueTitle.trim() || `${issue.journalAcronym} - ${issue.volume}/${issue.issue}`}
                     </h1>
                   </div>
 
@@ -183,6 +291,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                       <dt>Status</dt>
                       <dd>
                         <span className={`issue-status-pill issue-status-pill--${issue.status}`}>
+                          {issue.status === 'in-progress' && <InProgressStatusIcon />}
                           {statusLabel(issue.status)}
                         </span>
                       </dd>
@@ -203,12 +312,6 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                       <dt>Output Format</dt>
                       <dd>{OUTPUT_FORMAT_LABEL[issue.outputFormat]}</dd>
                     </div>
-                    {issue.issueTitle.trim() && (
-                      <div className="issue-details-cell issue-details-cell--full">
-                        <dt>Issue Title</dt>
-                        <dd>{issue.issueTitle}</dd>
-                      </div>
-                    )}
                   </dl>
                 </section>
 
@@ -224,11 +327,19 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                       >
                         <span className="issue-progress-marker" aria-hidden>
                           {step.state === 'completed' && (
-                            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+                            <svg
+                              className="issue-progress-marker-check"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <circle cx="8" cy="8" r="8" fill="#1c40ca" />
                               <path
-                                d="M7.5 10.5l2 2L13 9"
-                                stroke="white"
-                                strokeWidth="2"
+                                d="M4.75 8.15 7 10.4 11.35 5.55"
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
@@ -239,17 +350,59 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                         <div className="issue-progress-content">
                           <div className="issue-progress-row">
                             <span className="issue-progress-title">{step.label}</span>
-                            {step.state === 'active' && step.label === 'Article Lineup' && (
-                              <button type="button" className="issue-progress-action">
-                                Create
+                            {step.label === 'Article Lineup' && step.confirmedAt && (
+                              <button
+                                type="button"
+                                className="issue-progress-edit-action"
+                                onClick={handleOpenLineup}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {step.state === 'active' && step.label === 'Article Lineup' && !step.confirmedAt && (
+                              <button type="button" className="issue-progress-action" onClick={handleOpenLineup}>
+                                {issue.assignedArticleIds.length > 0 ? 'Confirm' : 'Create'}
+                              </button>
+                            )}
+                            {step.state === 'active' && step.label === 'Folio Creation' && (
+                              <button type="button" className="issue-progress-action" onClick={handleArrangeFolio}>
+                                Arrange
                               </button>
                             )}
                           </div>
-                          <p className="issue-progress-dates">
-                            <span>Start: {formatDisplayDateTime(step.start)}</span>
-                            <span className="issue-progress-date-separator">|</span>
-                            <span>Est. Completion: {formatDisplayDateTime(step.completion)}</span>
-                          </p>
+                          {step.confirmedAt ? (
+                            <div className="issue-progress-details">
+                              <p className="issue-progress-dates issue-progress-dates--completed">
+                                <span>
+                                  Start: <span className="issue-progress-date-value">{formatDisplayDateTime(step.start)}</span>
+                                </span>
+                                <span className="issue-progress-date-separator">|</span>
+                                <span>
+                                  End: <span className="issue-progress-date-value">{formatDisplayDateTime(step.completion)}</span>
+                                </span>
+                                <span className="issue-progress-date-separator">|</span>
+                                <span>
+                                  Duration: <span className="issue-progress-date-value">{step.duration}</span>
+                                </span>
+                              </p>
+                              <p className="issue-progress-confirmed">
+                                <span>
+                                  Confirmed by{' '}
+                                  <span className="issue-progress-confirmed-value">{step.confirmedBy}</span>
+                                </span>
+                                <span className="issue-progress-confirmed-dot" aria-hidden />
+                                <span className="issue-progress-confirmed-value">
+                                  {formatDisplayDateTime(step.confirmedAt)}
+                                </span>
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="issue-progress-dates">
+                              <span>Start: {formatDisplayDateTime(step.start)}</span>
+                              <span className="issue-progress-date-separator">|</span>
+                              <span>Est. Completion: {formatDisplayDateTime(step.completion)}</span>
+                            </p>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -262,6 +415,18 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
       </div>
 
       <Toast toast={toast} onDismiss={dismissToast} />
+      <ArticleLineupModal
+        isOpen={showLineupModal}
+        issue={issue ?? null}
+        onClose={() => setShowLineupModal(false)}
+        onConfirm={handleConfirmLineup}
+      />
+      <EditIssueDetailsModal
+        isOpen={showEditModal}
+        issue={issue ?? null}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveIssueDetails}
+      />
     </div>
   );
 };

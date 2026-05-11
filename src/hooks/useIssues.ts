@@ -59,5 +59,11 @@ export const useIssues = () => {
     setIssues(prev => (prev.some(i => i.id === issue.id) ? prev : [issue, ...prev]));
   }, []);
 
-  return { issues, addIssue, removeIssue, restoreIssue };
+  const updateIssue = useCallback((id: string, updates: Partial<Issue>) => {
+    setIssues(prev => prev.map(issue => (
+      issue.id === id ? { ...issue, ...updates } : issue
+    )));
+  }, []);
+
+  return { issues, addIssue, removeIssue, restoreIssue, updateIssue };
 };

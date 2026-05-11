@@ -34,6 +34,8 @@ export interface Issue {
   issueType: IssueType;
   outputFormat: IssueOutputFormat;
   assignedArticleIds: string[];
+  articleLineupConfirmedAt?: string;
+  articleLineupConfirmedBy?: string;
   milestone: IssueMilestone;
   status: IssueStatus;
   createdAt: string;

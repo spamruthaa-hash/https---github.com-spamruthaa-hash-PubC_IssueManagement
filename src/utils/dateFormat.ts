@@ -7,6 +7,12 @@ const MONTH_INDEX = MONTHS.reduce<Record<string, number>>((acc, month, index) =>
 
 const isValidDate = (date: Date): boolean => !Number.isNaN(date.getTime());
 
+const formatTime = (date: Date): string => {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 const expandYear = (year: string): number => {
   if (year.length === 2) {
     const value = Number(year);
@@ -46,7 +52,14 @@ const parseDateLike = (value: string | Date): Date | null => {
 };
 
 const extractTime = (value: string | Date, fallback = ''): string => {
-  if (value instanceof Date) return fallback;
+  if (value instanceof Date) {
+    if (!isValidDate(value)) return fallback;
+    return formatTime(value);
+  }
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const parsed = parseDateLike(value);
+    return parsed ? formatTime(parsed) : fallback;
+  }
   const match = value.match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
   return match?.[1] ?? fallback;
 };

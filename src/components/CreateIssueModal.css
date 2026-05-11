@@ -1012,27 +1012,21 @@
   max-height: none;
 }
 
-/* Hide scrollbars until the user hovers the table scroll area (both data tables) */
+/* Keep scrollbar space stable; only fade the thumb in on hover so tables do not jump. */
 .articles-table-wrapper,
 .assigned-table-wrapper {
-  scrollbar-width: none;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
 .articles-table-wrapper:hover,
 .assigned-table-wrapper:hover {
-  scrollbar-width: thin;
-  /* Low-contrast thumb so it stays unobtrusive */
   scrollbar-color: rgba(53, 66, 77, 0.2) transparent;
 }
 
 .articles-table-wrapper::-webkit-scrollbar,
 .assigned-table-wrapper::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
-.articles-table-wrapper:hover::-webkit-scrollbar,
-.assigned-table-wrapper:hover::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
@@ -1042,10 +1036,16 @@
   background: transparent;
 }
 
+.articles-table-wrapper::-webkit-scrollbar-thumb,
+.assigned-table-wrapper::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 100px;
+  transition: background 0.15s ease;
+}
+
 .articles-table-wrapper:hover::-webkit-scrollbar-thumb,
 .assigned-table-wrapper:hover::-webkit-scrollbar-thumb {
   background: rgba(53, 66, 77, 0.14);
-  border-radius: 100px;
 }
 
 .articles-table-wrapper:hover::-webkit-scrollbar-thumb:hover,
