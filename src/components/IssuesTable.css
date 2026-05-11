@@ -1,0 +1,553 @@
+/* Issues table page — Figma 336:2110 */
+.issues-table-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1036px;
+  margin: 0 auto;
+}
+
+/* Top header */
+.issues-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.issues-page-title {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #35424d;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+}
+
+.issues-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Create button — Action-Button-Light variant (Figma 336:2200) */
+.issues-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  height: 32px;
+  background: #ffffff;
+  border: 2px solid #1c40ca;
+  border-radius: 4px;
+  color: #1c40ca;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.issues-create-button:hover {
+  background: #edf0fd;
+}
+
+.issues-create-button:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+
+.issues-create-button svg {
+  flex-shrink: 0;
+}
+
+/* Tabs — Figma 336:2202 */
+.issues-tabs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #b7b7b7;
+}
+
+.issues-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 0;
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.issues-tab:hover {
+  color: #1c40ca;
+}
+
+.issues-tab:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.issues-tab--active {
+  font-weight: 600;
+  color: #35424d;
+  border-bottom-color: #1c40ca;
+}
+
+/* Toolbar (search + filters) */
+.issues-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.issues-search {
+  display: flex;
+  align-items: center;
+  width: 300px;
+  max-width: 600px;
+  min-width: 120px;
+  height: 32px;
+  padding: 0 8px;
+  background: #ffffff;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+  transition: border-color 0.15s ease;
+}
+
+.issues-search:focus-within {
+  border-color: #1c40ca;
+}
+
+.issues-search input {
+  flex: 1;
+  height: 28px;
+  border: none;
+  outline: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  color: #35424d;
+  background: transparent;
+  letter-spacing: -0.5px;
+  min-width: 0;
+}
+
+.issues-search input::placeholder {
+  color: #868e94;
+}
+
+.issues-search svg {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.issues-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Filter dropdowns */
+.issues-filter {
+  position: relative;
+}
+
+.issues-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border: none;
+  background: #ffffff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  color: #35424d;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.issues-filter-btn:hover {
+  background: #f6f7f7;
+}
+
+.issues-filter-btn:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+
+.issues-filter-btn[aria-expanded="true"] {
+  background: #f6f7f7;
+}
+
+.issues-filter-label {
+  font-weight: 600;
+}
+
+.issues-filter-value {
+  font-weight: 400;
+}
+
+.issues-filter-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.issues-filter-chevron--open {
+  transform: rotate(180deg);
+}
+
+.issues-filter-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  background: #ffffff;
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(39, 40, 51, 0.08);
+  padding: 4px 0;
+  z-index: 30;
+  overflow: hidden;
+  animation: issues-filter-menu-in 0.15s ease-out;
+}
+
+.issues-filter-menu--right {
+  left: auto;
+  right: 0;
+}
+
+@keyframes issues-filter-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.issues-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 16px 6px 8px;
+  border: none;
+  background: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  color: #35424d;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.issues-filter-item:hover {
+  background: #edf0fd;
+}
+
+.issues-filter-item--selected {
+  background: #fafbff;
+}
+
+.issues-filter-item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.issues-filter-item-label {
+  flex: 1;
+}
+
+/* Data table */
+.issues-data-table-wrapper {
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.issues-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.issues-data-table thead th {
+  background: #f6f7f7;
+  border-bottom: 1px solid #e3e4e5;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #5d6871;
+  line-height: 16px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.issues-data-table tbody td {
+  border-bottom: 1px solid #f6f7f7;
+  padding: 16px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: 28px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.issues-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.issues-data-table tbody tr:hover {
+  background: #fafbff;
+}
+
+.issues-data-table-row {
+  cursor: pointer;
+}
+
+.issues-data-table-row:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: -2px;
+}
+
+.issues-data-table-empty {
+  text-align: center;
+  padding: 32px 16px !important;
+  color: #868e94;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  white-space: normal !important;
+}
+
+.issues-data-table-empty button.issues-data-table-clear {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #1c40ca;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.issues-data-table-action-th {
+  width: 56px;
+}
+
+.issues-data-table-action-cell {
+  width: 56px;
+  text-align: right;
+  padding-right: 8px !important;
+}
+
+/* Milestone badge — reuse PubC blue (in-progress) tones */
+.issues-table-milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  border-radius: 16px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0566ed;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.issues-table-milestone-icon {
+  flex-shrink: 0;
+}
+
+/* Row actions (kebab) */
+.row-actions {
+  position: relative;
+  display: inline-block;
+}
+
+.row-actions-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.row-actions-trigger:hover {
+  background: #f6f7f7;
+}
+
+.row-actions-trigger:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+
+/* Portal-rendered menu — lives at <body> so it isn't clipped by table overflow.
+   Positioning is set by inline style from RowActionsMenu (top + left only). */
+.row-actions-menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  background: #ffffff;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+  /* Menu-Shadow from Figma */
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    0 4px 2px rgba(0, 0, 0, 0.09),
+    0 8px 2.5px rgba(0, 0, 0, 0.05),
+    0 14px 3px rgba(0, 0, 0, 0.01);
+  /* Sits above page chrome and the table, but stays below modals (1000+) and toasts (1100). */
+  z-index: 900;
+  overflow: hidden;
+}
+
+.row-actions-menu--below {
+  animation: row-actions-menu-in-below 0.15s ease-out;
+  transform-origin: top right;
+}
+
+.row-actions-menu--above {
+  animation: row-actions-menu-in-above 0.15s ease-out;
+  transform-origin: bottom right;
+}
+
+@keyframes row-actions-menu-in-below {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes row-actions-menu-in-above {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-actions-menu--below,
+  .row-actions-menu--above {
+    animation: none;
+  }
+}
+
+.row-actions-group {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-bottom: 1px solid #eceeee;
+}
+
+.row-actions-group:last-child {
+  border-bottom: none;
+}
+
+.row-actions-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.row-actions-item:hover {
+  background: #edf0fd;
+}
+
+.row-actions-item:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: -2px;
+}
+
+.row-actions-item--disabled {
+  color: #868e94;
+  cursor: not-allowed;
+}
+
+.row-actions-item--disabled:hover {
+  background: none;
+}
+
+.row-actions-upcoming-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  background: #fbfbfb;
+  border: 1px solid #eceeee;
+  border-radius: 20px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 12px;
+  font-style: italic;
+  color: #868e94;
+  line-height: 16px;
+}
+
+/* Visually-hidden helper for accessible labels on inputs */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 768px) {
+  .issues-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .issues-search {
+    width: 100%;
+  }
+
+  .issues-data-table-wrapper {
+    overflow-x: auto;
+  }
+}

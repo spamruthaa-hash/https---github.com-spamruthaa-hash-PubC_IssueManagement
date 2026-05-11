@@ -8,16 +8,23 @@
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(2px);
-  animation: fadeIn 0.2s ease-out;
+  animation: modal-overlay-enter 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* While leaving: fade out and block any further pointer interaction */
+.modal-overlay--leaving {
+  animation: modal-overlay-leave 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+@keyframes modal-overlay-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-overlay-leave {
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
 /* Modal Container */
@@ -30,19 +37,43 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease-out;
+  animation: modal-container-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
   /* Design token — menu item hover (lineup filters & elsewhere in modal) */
   --Primary-Primary-10: #EDF0FD;
 }
 
-@keyframes slideUp {
+.modal-overlay--leaving .modal-container {
+  animation: modal-container-leave 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes modal-container-enter {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-container-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-overlay--leaving,
+  .modal-container,
+  .modal-overlay--leaving .modal-container {
+    animation: none;
   }
 }
 
@@ -168,6 +199,28 @@
   background: #D7D9DB;
   max-width: 48px;
   min-width: 1px;
+}
+
+/* Step change: subtle enter (Issue details ↔ Lineup ↔ Review) */
+@keyframes modal-step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-step-enter {
+  animation: modal-step-enter 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-step-enter {
+    animation: none;
+  }
 }
 
 /* Form */
@@ -1626,50 +1679,87 @@
   background: var(--Primary-Primary-10, #edf0fd);
 }
 
-/* Issue Details values grid — Figma 301:77680: pt 12px pb 16px px 8px, gap 12×40, rounded bottom */
+/* Issue Details grid — tech spec (inline-grid, gaps, tokens) */
 .review-details-grid {
+  display: inline-grid;
+  align-self: stretch;
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-  gap: 12px 40px;
-  padding: 12px 8px 16px;
-  border-radius: 0 0 4px 4px;
-  background: #fff;
+  box-sizing: border-box;
+  grid-template-columns: repeat(4, fit-content(100%));
+  grid-template-rows: repeat(2, fit-content(100%));
+  grid-auto-rows: fit-content(100%);
+  row-gap: 12px;
+  column-gap: 16px;
+  padding: 12px 8px 16px 8px;
+  border-radius: 0;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  border-bottom: 1px solid rgba(236, 238, 238, 1);
+  background: var(--White-and-Black-White, #fff);
 }
 
 .review-detail-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: inline-flex;
+  flex-direction: row;
   align-items: flex-start;
-}
-
-.review-detail-cell--wide {
-  grid-column: span 2;
+  gap: 4px;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 248px;
+  min-height: 20px;
 }
 
 .review-detail-cell--full {
   grid-column: 1 / -1;
+  max-width: none;
 }
 
 .review-detail-k {
-  flex: 0 0 auto;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: fit-content;
   min-width: 80px;
   max-width: 100px;
-  color: #5d6871;
-  font-family: 'Source Sans Pro', sans-serif;
-  font-size: 14px;
+  height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--Neutral-Neutral-110, #5d6871);
+  font-family: var(--Family-Source-Sans-Pro, 'Source Sans Pro'), sans-serif;
+  font-size: var(--Font-Size-XS, 14px);
+  font-style: normal;
   font-weight: 400;
-  line-height: 20px;
+  line-height: var(--Line-Height-S, 20px);
+  letter-spacing: var(--Letter-spacing-S, 0);
 }
 
 .review-detail-v {
-  flex: 1 1 120px;
-  color: #35424d;
-  font-family: 'Source Sans Pro', sans-serif;
-  font-size: 14px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 96px;
+  width: max-content;
+  max-width: 148px;
+  min-height: 20px;
+  color: var(--Neutral-Neutral-120, #35424d);
+  font-family: var(--Family-Source-Sans-Pro, 'Source Sans Pro'), sans-serif;
+  font-size: var(--Font-Size-XS, 14px);
+  font-style: normal;
   font-weight: 400;
-  line-height: 20px;
+  line-height: var(--Line-Height-S, 20px);
+  letter-spacing: var(--Letter-spacing-S, 0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-detail-cell--full .review-detail-v {
+  width: auto;
+  min-width: 96px;
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .issue-status-badge {
@@ -1690,8 +1780,57 @@
   color: #0566ed;
 }
 
+/* Review Saved Lineup — inline stats only, Figma 300:77157 */
 .page-budget-bar.review-inline-budget {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding: 8px;
   margin-bottom: 16px;
+  border-top: none;
+  background: var(--White-and-Black-White, #fff);
+}
+
+.page-budget-bar.review-inline-budget .page-budget-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-budget-bar.review-inline-budget .budget-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-budget-bar.review-inline-budget .budget-number {
+  font-family: var(--Family-Source-Sans-Pro, 'Source Sans Pro'), sans-serif;
+  font-size: var(--Font-Size-S, 16px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: 0;
+  color: var(--Neutral-Neutral-120, #35424d);
+}
+
+.page-budget-bar.review-inline-budget .budget-label {
+  font-family: var(--Family-Source-Sans-Pro, 'Source Sans Pro'), sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0;
+  color: var(--Neutral-Neutral-110, #5d6871);
+}
+
+.page-budget-bar.review-inline-budget .budget-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 20px;
+  background: var(--Neutral-Neutral-50, #d7d9db);
 }
 
 .review-footer-stack {
@@ -1805,9 +1944,6 @@
 
   .review-details-grid {
     grid-template-columns: 1fr;
-  }
-
-  .review-detail-cell--wide {
-    grid-column: span 1;
+    grid-template-rows: none;
   }
 }

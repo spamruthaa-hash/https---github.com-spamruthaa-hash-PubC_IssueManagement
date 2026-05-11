@@ -7,6 +7,14 @@
   background: #FFFFFF;
 }
 
+/* When the page is populated, swap the centered empty-state layout for a top-aligned
+   data layout so the table grows naturally from the top of the main area. */
+.issues-container--with-data {
+  gap: 16px;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
 /* Page Header */
 .issues-header {
   display: flex;

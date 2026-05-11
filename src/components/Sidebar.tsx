@@ -37,7 +37,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   // Update active item based on current route
   useEffect(() => {
     const currentPath = location.pathname;
-    const currentItem = menuItems.find(item => item.path === currentPath);
+    const currentItem = menuItems.find(item =>
+      item.path === currentPath ||
+      (item.path !== '/' && item.path !== undefined && currentPath.startsWith(`${item.path}/`))
+    );
     if (currentItem) {
       setActiveItem(currentItem.id);
     }

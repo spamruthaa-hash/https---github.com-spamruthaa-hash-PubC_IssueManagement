@@ -31,3 +31,37 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+/* Native route handoff used when opening an issue from the In Progress table.
+   Browsers without the View Transitions API simply ignore these pseudo-elements. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: pubc-route-old 180ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  ::view-transition-new(root) {
+    animation: pubc-route-new 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes pubc-route-old {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.72;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes pubc-route-new {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

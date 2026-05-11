@@ -3,6 +3,8 @@ import { useState } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Issues from './pages/Issues';
+import IssueDetails from './pages/IssueDetails';
+import { clearStoredIssues } from './hooks/useIssues';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -13,7 +15,9 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    // Reset any issue-related state here when implemented
+    // Per product requirement: created issues persist across reloads but are wiped
+    // when the user signs out so the next session starts fresh.
+    clearStoredIssues();
   };
 
   return (
@@ -48,6 +52,16 @@ function App() {
               <Navigate to="/login" replace />
             )
           } 
+        />
+        <Route
+          path="/issues/:issueId"
+          element={
+            isAuthenticated ? (
+              <IssueDetails onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
         <Route 
           path="/" 

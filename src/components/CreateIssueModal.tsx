@@ -1,4 +1,12 @@
-import { useState, useRef, useEffect, FormEvent, type CSSProperties } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  FormEvent,
+  type AnimationEvent as ReactAnimationEvent,
+  type CSSProperties,
+} from 'react';
+import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import './CreateIssueModal.css';
 
 interface CreateIssueModalProps {
@@ -20,6 +28,14 @@ export interface IssueFormData {
   selectedArticles?: Article[];
   /** Step 2 footer + Review step Create Issue (Figma 300:75313) */
   lineupAction?: 'proceed' | 'save-draft' | 'confirm-lineup' | 'create-issue';
+  /**
+   * Captured at the point of "create-issue": tells the parent which path the user took
+   * through Step 2 so it can derive the initial milestone.
+   *   - 'confirm' → user confirmed the lineup → milestone "Folio Creation"
+   *   - 'draft'   → user saved as draft       → milestone "Article Lineup"
+   *   - 'proceed' → user skipped the lineup   → milestone "Article Lineup"
+   */
+  lineupStatus?: 'draft' | 'confirm' | 'proceed';
 }
 
 interface Journal {
@@ -66,16 +82,6 @@ const OUTPUT_FORMAT_LABEL: Record<'print' | 'online' | 'both', string> = {
   online: 'Online',
   both: 'Print & Online',
 };
-
-function formatUsDate(iso: string): string {
-  if (!iso) return '—';
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
-}
 
 /** Copy for Page Budget info tooltip (annual allocation summary) */
 const ANNUAL_PAGE_BUDGET_TOOLTIP = {
@@ -137,6 +143,14 @@ const SORT_OPTIONS = [
 ];
 
 const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) => {
+  /**
+   * Local mount/animation state so the dialog can play its exit animation
+   * after the parent flips `isOpen` to false. Without this, the parent's
+   * state change would yank the modal out of the DOM in a single frame.
+   */
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isExiting, setIsExiting] = useState(false);
+
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<IssueFormData>({
     journal: '', volume: '', issue: '', issueTitle: '',
@@ -249,6 +263,42 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
+  /**
+   * Bridge between the parent-controlled `isOpen` flag and the internal mount lifecycle.
+   * Opening: render immediately (CSS plays the enter animation).
+   * Closing: stay mounted with `isExiting=true` so the leave animation can finish before unmount.
+   */
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsExiting(false);
+    } else if (shouldRender) {
+      setIsExiting(true);
+    }
+  }, [isOpen, shouldRender]);
+
+  const resetInternalState = () => {
+    setFormData({ journal: '', volume: '', issue: '', issueTitle: '', coverMonth: '', publicationDate: '', issueCloseDate: '', issueType: '', outputFormat: '' });
+    setErrors({});
+    setJournalSearchTerm('');
+    setCurrentStep(1);
+    setAddedArticleIds(new Set());
+    setArticleSearch('');
+    setMilestoneFilter('All');
+    setSortBy('acceptance-asc');
+    setReviewBannerVariant('draft');
+  };
+
+  /** Fires when the overlay's enter/leave animation ends — we only react to the leave. */
+  const handleOverlayAnimationEnd = (e: ReactAnimationEvent<HTMLDivElement>) => {
+    if (!isExiting) return;
+    if (e.target !== e.currentTarget) return;
+    if (e.animationName !== 'modal-overlay-leave') return;
+    setShouldRender(false);
+    setIsExiting(false);
+    resetInternalState();
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => updateFabVisibility(addedArticleIds.size > 0), 0);
     return () => clearTimeout(timer);
@@ -338,6 +388,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
       ...formData,
       selectedArticles: addedArticles,
       lineupAction: 'create-issue',
+      lineupStatus: reviewBannerVariant,
     });
     handleClose();
   };
@@ -353,15 +404,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   };
 
   const handleClose = () => {
-    setFormData({ journal: '', volume: '', issue: '', issueTitle: '', coverMonth: '', publicationDate: '', issueCloseDate: '', issueType: '', outputFormat: '' });
-    setErrors({});
-    setJournalSearchTerm('');
-    setCurrentStep(1);
-    setAddedArticleIds(new Set());
-    setArticleSearch('');
-    setMilestoneFilter('All');
-    setSortBy('acceptance-asc');
-    setReviewBannerVariant('draft');
+    // Don't reset internal state here — that would mid-animation snap the form back to defaults.
+    // The reset runs in `handleOverlayAnimationEnd` once the leave animation finishes.
     onClose();
   };
 
@@ -415,7 +459,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   const isFormComplete =
     formData.journal && formData.volume && formData.issue &&
@@ -495,7 +539,12 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   };
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
+    <div
+      className={`modal-overlay${isExiting ? ' modal-overlay--leaving' : ''}`}
+      onClick={handleClose}
+      onAnimationEnd={handleOverlayAnimationEnd}
+      aria-hidden={isExiting}
+    >
       <div className="modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Create Issue</h2>
@@ -508,7 +557,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
 
         {/* ── STEP 1 ── */}
         {currentStep === 1 && (
-          <form onSubmit={handleNextStep} className="modal-form">
+          <form onSubmit={handleNextStep} className="modal-form modal-step-enter">
           <div className="form-content">
               {renderStepper()}
 
@@ -643,7 +692,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
         {/* ── STEP 2 ── */}
         {currentStep === 2 && (
           <div
-            className="modal-form modal-form-relative modal-form-lineup"
+            className="modal-form modal-form-relative modal-form-lineup modal-step-enter"
             style={
               {
                 '--lineup-bottom-stack-height': showPageBudget ? '112px' : '60px',
@@ -852,8 +901,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                               {article.milestone}
                             </span>
                           </td>
-                          <td className="article-date">{article.estimatedPublication}</td>
-                          <td className="article-date">{article.acceptance}</td>
+                          <td className="article-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
+                          <td className="article-date">{formatDisplayDateTime(article.acceptance)}</td>
                           <td className="article-action-cell">
                             <button
                               type="button"
@@ -967,8 +1016,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                                 {article.milestone}
                               </span>
                             </td>
-                            <td className="article-date">{article.estimatedPublication}</td>
-                            <td className="article-date">{article.acceptance}</td>
+                            <td className="article-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
+                            <td className="article-date">{formatDisplayDateTime(article.acceptance)}</td>
                             <td className="article-action-cell">
                               <button className="remove-article-btn" onClick={() => toggleArticle(article.id)}>
                                 Remove
@@ -1129,7 +1178,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
 
         {/* ── STEP 3: Review (Save lineup as draft or Confirm Lineup) — Figma 300:75313 / 301:77171 ── */}
         {currentStep === 3 && (
-          <div className="modal-form modal-form-review">
+          <div className="modal-form modal-form-review modal-step-enter">
             <div className="form-content lineup-content review-scroll">
               {renderStepper()}
 
@@ -1167,36 +1216,19 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                     <span className="review-detail-k">Cover Month</span>
                     <span className="review-detail-v">{formData.coverMonth || '—'}</span>
                   </div>
-                  {reviewBannerVariant !== 'proceed' && (
-                    <div className="review-detail-cell">
-                      <span className="review-detail-k">Status</span>
-                      <span className="issue-status-badge issue-status-badge--progress">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <path d="M9 16h6v-6h2l-5-5-5 5h2v6zm-4 2h14v2H5v-2z" fill="currentColor" />
-                        </svg>
-                        In progress
-                      </span>
-                    </div>
-                  )}
                   <div className="review-detail-cell">
                     <span className="review-detail-k">Assigned Articles</span>
                     <span className="review-detail-v">{addedArticles.length}</span>
                   </div>
                   <div className="review-detail-cell">
                     <span className="review-detail-k">Issue Close Date</span>
-                    <span className="review-detail-v">{formatUsDate(formData.issueCloseDate)}</span>
+                    <span className="review-detail-v">{formatDisplayDate(formData.issueCloseDate)}</span>
                   </div>
                   <div className="review-detail-cell">
                     <span className="review-detail-k">Online Pub. Date</span>
-                    <span className="review-detail-v">{formatUsDate(formData.publicationDate)}</span>
+                    <span className="review-detail-v">{formatDisplayDate(formData.publicationDate)}</span>
                   </div>
-                  <div
-                    className={
-                      reviewBannerVariant === 'proceed'
-                        ? 'review-detail-cell'
-                        : 'review-detail-cell review-detail-cell--wide'
-                    }
-                  >
+                  <div className="review-detail-cell">
                     <span className="review-detail-k">Output Format</span>
                     <span className="review-detail-v">{outputFormatDisplay}</span>
                   </div>
@@ -1227,65 +1259,12 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                 </div>
 
                 {showPageBudget && (
-                  <div className="page-budget-bar review-inline-budget" aria-live={pageBudgetExceeded ? 'polite' : undefined}>
-                    <div className="page-budget-left">
-                      <span className="page-budget-title">Page Budget</span>
-                      <span className="page-budget-info-wrap">
-                        <span
-                          className="page-budget-info-trigger"
-                          aria-describedby="page-budget-tooltip-review-desc"
-                          tabIndex={0}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="page-budget-info">
-                            <mask
-                              id="pageBudgetReviewIconMask"
-                              style={{ maskType: 'alpha' }}
-                              maskUnits="userSpaceOnUse"
-                              x="0"
-                              y="0"
-                              width="16"
-                              height="16"
-                            >
-                              <rect width="16" height="16" fill="#D9D9D9" />
-                            </mask>
-                            <g mask="url(#pageBudgetReviewIconMask)">
-                              <path
-                                d="M7.33325 11.3334H8.66658V7.33337H7.33325V11.3334ZM8.47492 5.80837C8.6027 5.6806 8.66658 5.52226 8.66658 5.33337C8.66658 5.14448 8.6027 4.98615 8.47492 4.85837C8.34714 4.7306 8.18881 4.66671 7.99992 4.66671C7.81103 4.66671 7.6527 4.7306 7.52492 4.85837C7.39714 4.98615 7.33325 5.14448 7.33325 5.33337C7.33325 5.52226 7.39714 5.6806 7.52492 5.80837C7.6527 5.93615 7.81103 6.00004 7.99992 6.00004C8.18881 6.00004 8.34714 5.93615 8.47492 5.80837ZM7.99992 14.6667C7.0777 14.6667 6.21103 14.4917 5.39992 14.1417C4.58881 13.7917 3.88325 13.3167 3.28325 12.7167C2.68325 12.1167 2.20825 11.4112 1.85825 10.6C1.50825 9.78893 1.33325 8.92226 1.33325 8.00004C1.33325 7.07782 1.50825 6.21115 1.85825 5.40004C2.20825 4.58893 2.68325 3.88337 3.28325 3.28337C3.88325 2.68337 4.58881 2.20837 5.39992 1.85837C6.21103 1.50837 7.0777 1.33337 7.99992 1.33337C8.92214 1.33337 9.78881 1.50837 10.5999 1.85837C11.411 2.20837 12.1166 2.68337 12.7166 3.28337C13.3166 3.88337 13.7916 4.58893 14.1416 5.40004C14.4916 6.21115 14.6666 7.07782 14.6666 8.00004C14.6666 8.92226 14.4916 9.78893 14.1416 10.6C13.7916 11.4112 13.3166 12.1167 12.7166 12.7167C12.1166 13.3167 11.411 13.7917 10.5999 14.1417C9.78881 14.4917 8.92214 14.6667 7.99992 14.6667ZM7.99992 13.3334C9.48881 13.3334 10.7499 12.8167 11.7833 11.7834C12.8166 10.75 13.3333 9.48893 13.3333 8.00004C13.3333 6.51115 12.8166 5.25004 11.7833 4.21671C10.7499 3.18337 9.48881 2.66671 7.99992 2.66671C6.51103 2.66671 5.24992 3.18337 4.21659 4.21671C3.18325 5.25004 2.66659 6.51115 2.66659 8.00004C2.66659 9.48893 3.18325 10.75 4.21659 11.7834C5.24992 12.8167 6.51103 13.3334 7.99992 13.3334Z"
-                                fill="#868E94"
-                              />
-                            </g>
-                          </svg>
-                        </span>
-                        <span id="page-budget-tooltip-review-desc" role="tooltip" className="page-budget-tooltip">
-                          <span className="page-budget-tooltip-heading">Annual Page Budget</span>
-                          <div className="page-budget-tooltip-rows">
-                            <div className="page-budget-tooltip-row">
-                              <span className="page-budget-tooltip-k">Total Issues / Year</span>
-                              <span className="page-budget-tooltip-v">{ANNUAL_PAGE_BUDGET_TOOLTIP.totalIssuesPerYear}</span>
-                            </div>
-                            <div className="page-budget-tooltip-row">
-                              <span className="page-budget-tooltip-k">Per-Issue Budget</span>
-                              <span className="page-budget-tooltip-v">{PAGE_BUDGET} pages</span>
-                            </div>
-                          </div>
-                          <div className="page-budget-tooltip-divider" aria-hidden />
-                          <div className="page-budget-tooltip-rows">
-                            <div className="page-budget-tooltip-row">
-                              <span className="page-budget-tooltip-k">Total Annual Allocation</span>
-                              <span className="page-budget-tooltip-v">{ANNUAL_PAGE_BUDGET_TOOLTIP.totalAnnualAllocationPages} pages</span>
-                            </div>
-                            <div className="page-budget-tooltip-row">
-                              <span className="page-budget-tooltip-k">Pages Used Till Date</span>
-                              <span className="page-budget-tooltip-v">{ANNUAL_PAGE_BUDGET_TOOLTIP.pagesUsedTillDatePages} pages</span>
-                            </div>
-                            <div className="page-budget-tooltip-row">
-                              <span className="page-budget-tooltip-k">Remaining for the Year</span>
-                              <span className="page-budget-tooltip-v">{ANNUAL_PAGE_BUDGET_TOOLTIP.remainingForYearPages} pages</span>
-                            </div>
-                          </div>
-                        </span>
-                      </span>
-                    </div>
+                  <div
+                    className="page-budget-bar review-inline-budget"
+                    aria-live={pageBudgetExceeded ? 'polite' : undefined}
+                    role="status"
+                    aria-label={`Page budget: ${pagesRemaining} pages remaining, ${pagesAdded} pages added, ${PAGE_BUDGET} issue budget`}
+                  >
                     <div className="page-budget-right">
                       <div className="budget-stat">
                         <span className={`budget-number${pageBudgetExceeded ? ' budget-number--warning' : ''}`}>
@@ -1396,8 +1375,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                               {article.milestone}
                             </span>
                           </td>
-                          <td className="article-date">{article.estimatedPublication}</td>
-                          <td className="article-date">{article.acceptance}</td>
+                          <td className="article-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
+                          <td className="article-date">{formatDisplayDateTime(article.acceptance)}</td>
                         </tr>
                       ))}
                     </tbody>
