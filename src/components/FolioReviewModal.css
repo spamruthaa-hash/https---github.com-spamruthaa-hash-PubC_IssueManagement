@@ -1,0 +1,612 @@
+.folio-review-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(39, 40, 51, 0.4);
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.folio-review-modal {
+  width: min(996px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #35424d;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(39, 40, 51, 0.4);
+}
+
+.folio-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #c2c6ca;
+}
+
+.folio-review-header h2,
+.folio-review-section h3 {
+  margin: 0;
+  color: #35424d;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+}
+
+.folio-review-close {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #35424d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.folio-review-close:hover,
+.folio-review-close:focus-visible {
+  background: #f6f7f7;
+  outline: none;
+}
+
+.folio-review-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 24px 16px;
+}
+
+.folio-review-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.folio-review-section + .folio-review-section {
+  border-top: 1px solid #eceeee;
+  padding-top: 24px;
+}
+
+.folio-review-section--folio {
+  padding-bottom: 0;
+}
+
+.folio-review-details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 32px;
+  margin: 0;
+}
+
+.folio-review-details-grid div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px;
+}
+
+.folio-review-details-grid dt,
+.folio-review-table th,
+.folio-review-table small,
+.folio-review-output-card span {
+  color: #5d6871;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.folio-review-details-grid dd {
+  margin: 0;
+  color: #35424d;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.folio-review-output-card {
+  width: 304px;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+}
+
+.folio-review-output-card strong,
+.folio-review-file-content strong {
+  display: block;
+  overflow: hidden;
+  color: #35424d;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folio-review-pdf-icon {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.folio-review-icon-action {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: #35424d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.folio-review-icon-action:hover,
+.folio-review-icon-action:focus-visible {
+  background: #f6f7f7;
+  outline: none;
+}
+
+.folio-review-table-wrap {
+  overflow: auto;
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+}
+
+.folio-review-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.folio-review-table th {
+  padding: 12px;
+  background: #f6f7f7;
+  border-bottom: 1px solid #e3e4e5;
+  text-align: left;
+}
+
+.folio-review-table th:nth-child(1) {
+  width: 84px;
+}
+
+.folio-review-table th:nth-child(2) {
+  width: 64px;
+}
+
+.folio-review-table th:nth-child(3) {
+  width: 150px;
+}
+
+.folio-review-table th:nth-child(5) {
+  width: 70px;
+}
+
+.folio-review-table th:nth-child(6) {
+  width: 104px;
+}
+
+.folio-review-table td {
+  vertical-align: top;
+  padding: 16px 12px;
+  border-bottom: 1px solid #f6f7f7;
+  color: #35424d;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.folio-review-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.folio-review-table td:nth-child(1),
+.folio-review-table td:nth-child(2),
+.folio-review-table td:nth-child(5),
+.folio-review-table td:nth-child(6) {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.folio-review-table td:nth-child(3) > span,
+.folio-review-table td:nth-child(3) > small {
+  display: block;
+}
+
+.folio-review-link {
+  color: #1c40ca;
+}
+
+.folio-review-checkbox {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #eceeee;
+  background: #eceeee;
+  border: 1px solid #d7d9db;
+  border-radius: 2px;
+}
+
+.folio-review-checkbox--checked {
+  color: #eceeee;
+  background: #9aa1a6;
+  border-color: #9aa1a6;
+}
+
+.folio-review-file-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.folio-review-article-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.folio-review-article-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #35424d;
+}
+
+.folio-review-article-title svg {
+  flex: 0 0 auto;
+}
+
+.folio-review-pap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  color: #007a39;
+  background: #d8f7e5;
+  border: 1px solid #7ddda4;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.folio-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 12px 24px;
+  border-top: 1px solid #c2c6ca;
+  background: #ffffff;
+}
+
+.folio-review-text-button,
+.folio-review-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.folio-review-text-button {
+  color: #1c40ca;
+  background: #ffffff;
+  border: none;
+}
+
+.folio-review-text-button:hover,
+.folio-review-text-button:focus-visible {
+  background: #edf0fd;
+  outline: none;
+}
+
+.folio-review-primary {
+  color: #ffffff;
+  background: #1c40ca;
+  border: 1px solid #1c40ca;
+}
+
+.folio-review-primary:hover,
+.folio-review-primary:focus-visible {
+  filter: brightness(0.92);
+  outline: none;
+}
+
+.folio-correction-modal {
+  width: min(600px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #35424d;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(39, 40, 51, 0.4);
+}
+
+.folio-correction-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px 10px 16px;
+  border-bottom: 1px solid #c2c6ca;
+}
+
+.folio-correction-header h2 {
+  margin: 0;
+  color: #35424d;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+  text-transform: capitalize;
+}
+
+.folio-correction-back {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: #35424d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.folio-correction-back:hover,
+.folio-correction-back:focus-visible {
+  background: #f6f7f7;
+  outline: none;
+}
+
+.folio-correction-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-bottom: 1px solid #d7d9db;
+}
+
+.folio-correction-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.folio-correction-field label {
+  color: #35424d;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+}
+
+.folio-correction-field label span {
+  color: #d10b00;
+  font-weight: 600;
+}
+
+.folio-correction-file-input {
+  display: none;
+}
+
+.folio-correction-upload {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 8px;
+  color: #35424d;
+  background: #f6f7f7;
+  border: 1px dashed #bbbfc3;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+}
+
+.folio-correction-upload:hover,
+.folio-correction-upload:focus-visible {
+  border-color: #1c40ca;
+  outline: none;
+}
+
+.folio-correction-attachment-card {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  color: #35424d;
+  background: #fbfbfb;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+}
+
+.folio-correction-file-icon {
+  width: 37px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--correction-file-tone, #9aa1a6);
+}
+
+.folio-correction-file-icon svg {
+  display: block;
+}
+
+.folio-correction-attachment-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.folio-correction-attachment-copy strong,
+.folio-correction-attachment-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folio-correction-attachment-copy strong {
+  color: #35424d;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+.folio-correction-attachment-copy span {
+  color: rgba(134, 142, 148, 0.5);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: -0.06px;
+}
+
+.folio-correction-attachment-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.folio-correction-attachment-actions button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #35424d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.folio-correction-attachment-actions button:hover,
+.folio-correction-attachment-actions button:focus-visible {
+  background: #eceeee;
+  outline: none;
+}
+
+.folio-correction-editor {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #d7d9db;
+  border-radius: 4px;
+}
+
+.folio-correction-editor textarea {
+  width: 100%;
+  height: 112px;
+  display: block;
+  resize: none;
+  padding: 8px;
+  color: #35424d;
+  background: #ffffff;
+  border: none;
+  outline: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.folio-correction-editor textarea::placeholder {
+  color: #9aa1a6;
+}
+
+.folio-correction-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  background: #ffffff;
+}
+
+.folio-correction-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  color: #ffffff;
+  background: #1c40ca;
+  border: 1px solid #1c40ca;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.folio-correction-done:hover:not(:disabled),
+.folio-correction-done:focus-visible:not(:disabled) {
+  filter: brightness(0.92);
+  outline: none;
+}
+
+.folio-correction-done:disabled {
+  background: #6f82d8;
+  border-color: #6f82d8;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+@media (max-width: 760px) {
+  .folio-review-overlay {
+    padding: 12px;
+  }
+
+  .folio-review-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .folio-review-output-card {
+    width: 100%;
+  }
+
+  .folio-correction-modal {
+    width: 100%;
+  }
+}

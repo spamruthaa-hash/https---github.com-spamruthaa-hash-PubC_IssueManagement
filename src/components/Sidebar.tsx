@@ -27,7 +27,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
   const menuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: dashboardIcon, path: '/dashboard' },
-    { id: 'my-tasks', label: 'My Tasks', icon: tasksIcon },
+    { id: 'my-tasks', label: 'My Tasks', icon: tasksIcon, path: '/tasks' },
     { id: 'conversations', label: 'Conversations', icon: conversationsIcon },
     { id: 'insight', label: 'Insight', icon: analyticsIcon, hasNotification: true },
     { id: 'issues', label: 'Issues', icon: issuesIcon, path: '/issues' },

@@ -353,6 +353,93 @@
   text-decoration: underline;
 }
 
+.issues-tab-empty-state {
+  flex: 1;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+}
+
+.issues-tab-empty-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+}
+
+.issues-tab-empty-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.issues-tab-empty-copy h2 {
+  margin: 0;
+  color: #2a353e;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.issues-tab-empty-copy p {
+  margin: 0;
+  color: #35424d;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.issues-tab-empty-create {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 24px;
+  color: #ffffff;
+  background: #1c40ca;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.issues-tab-empty-create:hover,
+.issues-tab-empty-create:focus-visible {
+  background: #163499;
+  outline: none;
+}
+
+.issues-tab-empty-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 24px;
+  color: #1c40ca;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.issues-tab-empty-link:hover,
+.issues-tab-empty-link:focus-visible {
+  color: #163499;
+  outline: none;
+  text-decoration: underline;
+}
+
 .issues-data-table-action-th {
   width: 56px;
 }
@@ -363,21 +450,29 @@
   padding-right: 8px !important;
 }
 
-/* Milestone badge — reuse PubC blue (in-progress) tones */
 .issues-table-milestone-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: #e6f4ff;
-  border: 1px solid #91caff;
   border-radius: 16px;
   font-family: 'Source Sans Pro', sans-serif;
   font-size: 12px;
   font-weight: 600;
-  color: #0566ed;
   line-height: 16px;
   white-space: nowrap;
+}
+
+.issues-table-milestone-badge--in-progress {
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  color: #0566ed;
+}
+
+.issues-table-milestone-badge--completed {
+  background: #dafbe8;
+  border: 1px solid #8bdfb2;
+  color: #007a39;
 }
 
 .issues-table-milestone-icon {

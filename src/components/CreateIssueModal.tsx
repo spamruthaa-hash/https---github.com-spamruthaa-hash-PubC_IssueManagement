@@ -295,6 +295,10 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   };
 
   const submitLineupStep = (lineupAction: IssueFormData['lineupAction']) => {
+    if (lineupAction === 'confirm-lineup' && !hasLineupSelection) {
+      return;
+    }
+
     const payload = { ...formData, selectedArticles: addedArticles, lineupAction };
     if (lineupAction === 'save-draft') {
       onSubmit(payload);

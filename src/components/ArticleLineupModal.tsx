@@ -14,6 +14,11 @@ import './ArticleLineupModal.css';
 interface ArticleLineupModalProps {
   isOpen: boolean;
   issue: Issue | null;
+  title?: string;
+  headerAction?: 'close' | 'back';
+  initialArticleIds?: string[];
+  manageBodyScroll?: boolean;
+  isClosing?: boolean;
   onClose: () => void;
   onConfirm: (issueId: string, articleIds: string[]) => void;
 }
@@ -39,7 +44,17 @@ const sortArticles = (sortBy: string) => (a: Article, b: Article) => {
   return 0;
 };
 
-const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineupModalProps) => {
+const ArticleLineupModal = ({
+  isOpen,
+  issue,
+  title = 'Article Lineup',
+  headerAction = 'close',
+  initialArticleIds,
+  manageBodyScroll = true,
+  isClosing = false,
+  onClose,
+  onConfirm,
+}: ArticleLineupModalProps) => {
   const [articleSearch, setArticleSearch] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('All');
   const [sortBy, setSortBy] = useState('acceptance-asc');
@@ -121,7 +136,7 @@ const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineup
 
   useEffect(() => {
     if (!isOpen || !issue) return;
-    setSelectedArticleIds(new Set(issue.assignedArticleIds));
+    setSelectedArticleIds(new Set(initialArticleIds ?? issue.assignedArticleIds));
     setArticleSearch('');
     setMilestoneFilter('All');
     setSortBy('acceptance-asc');
@@ -129,15 +144,15 @@ const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineup
     setShowSortDropdown(false);
     setShowGoDownFab(false);
     setShowGoUpFab(false);
-  }, [isOpen, issue]);
+  }, [initialArticleIds, isOpen, issue]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !manageBodyScroll) return;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, manageBodyScroll]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -192,6 +207,8 @@ const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineup
   };
 
   const handleConfirm = () => {
+    if (!hasAssignedArticles) return;
+
     const orderedIds = availableArticles
       .filter(article => selectedArticleIds.has(article.id))
       .map(article => article.id);
@@ -317,22 +334,37 @@ const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineup
   return (
     <div className="article-lineup-overlay" role="presentation" onMouseDown={onClose}>
       <section
-        className="article-lineup-modal"
+        className={[
+          'article-lineup-modal',
+          headerAction === 'back' ? 'article-lineup-modal--back-flow' : '',
+          isClosing ? 'article-lineup-modal--closing' : '',
+        ].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby="article-lineup-title"
         onMouseDown={event => event.stopPropagation()}
       >
-        <header className="article-lineup-header">
-          <h2 id="article-lineup-title">Article Lineup</h2>
-          <button type="button" className="article-lineup-close" onClick={onClose} aria-label="Close">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.3-6.29 1.41 1.41Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
+        <header className={headerAction === 'back' ? 'article-lineup-header article-lineup-header--back' : 'article-lineup-header'}>
+          <div className="article-lineup-header-title">
+            {headerAction === 'back' && (
+              <button type="button" className="article-lineup-back" onClick={onClose} aria-label="Back">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <path d="M12.5 15 7.5 10l5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+            <h2 id="article-lineup-title">{title}</h2>
+          </div>
+          {headerAction === 'close' && (
+            <button type="button" className="article-lineup-close" onClick={onClose} aria-label="Close">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.3-6.29 1.41 1.41Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          )}
         </header>
 
         <div
@@ -571,7 +603,12 @@ const ArticleLineupModal = ({ isOpen, issue, onClose, onConfirm }: ArticleLineup
             </div>
           )}
             <div className="article-lineup-footer-actions">
-              <button type="button" className="article-lineup-confirm" onClick={handleConfirm}>
+              <button
+                type="button"
+                className="article-lineup-confirm"
+                onClick={handleConfirm}
+                disabled={!hasAssignedArticles}
+              >
                 Confirm
               </button>
             </div>

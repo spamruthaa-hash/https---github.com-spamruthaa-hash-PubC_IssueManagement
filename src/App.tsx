@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Issues from './pages/Issues';
 import IssueDetails from './pages/IssueDetails';
+import MyTasks from './pages/MyTasks';
 import { clearStoredIssues } from './hooks/useIssues';
 
 function App() {
@@ -42,6 +43,16 @@ function App() {
               <Navigate to="/login" replace />
             )
           } 
+        />
+        <Route
+          path="/tasks"
+          element={
+            isAuthenticated ? (
+              <MyTasks onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
         <Route 
           path="/issues" 

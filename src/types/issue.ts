@@ -19,6 +19,77 @@ export type IssueOutputFormat = 'print' | 'online' | 'both';
 
 export type IssueStatus = 'in-progress' | 'completed';
 
+export type FolioMatterType =
+  | 'coversheet'
+  | 'masthead'
+  | 'table-of-contents'
+  | 'call-for-papers'
+  | 'advertisement'
+  | 'upcoming-issue'
+  | 'blank';
+
+export interface FolioFileAttachment {
+  name: string;
+  size: number;
+  type: string;
+  pageCount?: number;
+  objectUrl?: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+export interface FolioMatterPlacement {
+  id: string;
+  kind: 'matter';
+  matterType: FolioMatterType;
+  file?: FolioFileAttachment;
+}
+
+export interface FolioArticlePlacement {
+  id: string;
+  kind: 'article';
+  articleId: string;
+  startPage: number;
+  endPage: number;
+}
+
+export type FolioArrangementItem = FolioMatterPlacement | FolioArticlePlacement;
+
+export interface FolioArrangement {
+  items: FolioArrangementItem[];
+  submittedAt: string;
+  submittedBy: string;
+}
+
+export type FolioPreparationRevisionReason = 'folio-edit' | 'correction' | 're-review';
+
+export interface FolioPreparationRevision {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  reason: FolioPreparationRevisionReason;
+  submittedAt: string;
+  submittedBy: string;
+}
+
+export interface ArticleLineupRevision {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  submittedAt: string;
+  submittedBy: string;
+  articleCount: number;
+}
+
+export interface FolioCreationRevision {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  submittedAt: string;
+  submittedBy: string;
+  itemCount: number;
+}
+
 export interface Issue {
   id: string;
   journalId: string;
@@ -34,8 +105,24 @@ export interface Issue {
   issueType: IssueType;
   outputFormat: IssueOutputFormat;
   assignedArticleIds: string[];
+  articleLineupStartedAt?: string;
+  articleLineupRevisions?: ArticleLineupRevision[];
   articleLineupConfirmedAt?: string;
   articleLineupConfirmedBy?: string;
+  folioArrangement?: FolioArrangement;
+  folioCreationRevisions?: FolioCreationRevision[];
+  folioArrangementConfirmedAt?: string;
+  folioArrangementConfirmedBy?: string;
+  folioPreparationStartedAt?: string;
+  folioPreparationRevisions?: FolioPreparationRevision[];
+  folioPreparationConfirmedAt?: string;
+  folioPreparationConfirmedBy?: string;
+  folioReviewConfirmedAt?: string;
+  folioReviewConfirmedBy?: string;
+  printConfirmedAt?: string;
+  printConfirmedBy?: string;
+  onlinePublicationConfirmedAt?: string;
+  onlinePublicationConfirmedBy?: string;
   milestone: IssueMilestone;
   status: IssueStatus;
   createdAt: string;

@@ -28,26 +28,42 @@ const formatEstimatedPublication = (iso: string): string => {
 
 interface MilestoneBadgeProps {
   milestone: IssueMilestone;
+  variant?: 'in-progress' | 'completed';
 }
 
-const MilestoneBadge = ({ milestone }: MilestoneBadgeProps) => (
-  <span className="issues-table-milestone-badge">
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-      className="issues-table-milestone-icon"
-    >
-      <path
-        d="M2.479 10.675a5.4 5.4 0 0 1-.89-1.444 5.6 5.6 0 0 1-.422-1.648h1.196a4 4 0 0 0 .278 1.205c.156.384.36.741.613 1.072L2.48 10.675ZM1.167 6.417a5.6 5.6 0 0 1 .437-1.648 5.4 5.4 0 0 1 .875-1.444l.817.817a4 4 0 0 0-.613 1.071 4 4 0 0 0-.278 1.205H1.167Zm5.22 6.387a5.6 5.6 0 0 1-1.641-.416 5.4 5.4 0 0 1-1.45-.868l.816-.845a4 4 0 0 0 1.072.626c.378.165.776.276 1.202.335v1.168Zm-2.245-9.479-.846-.846a5.4 5.4 0 0 1 1.473-.868 5.6 5.6 0 0 1 1.648-.416v1.167a4 4 0 0 0-1.205.335 4 4 0 0 0-1.07.628Zm3.412 9.479v-1.167a4 4 0 0 0 1.218-.328 4 4 0 0 0 1.085-.627l.846.845a5.4 5.4 0 0 1-1.45.871 5.6 5.6 0 0 1-1.7.406Zm2.333-9.479a4 4 0 0 0-1.094-.628 4 4 0 0 0-1.21-.335V1.196a5.6 5.6 0 0 1 1.655.416 5.4 5.4 0 0 1 1.466.868l-.817.846Zm1.633 7.35-.817-.817c.253-.331.457-.688.612-1.072.156-.384.249-.787.278-1.205h1.196a5.6 5.6 0 0 1-.422 1.648 5.4 5.4 0 0 1-.847 1.446Zm.117-4.258a4 4 0 0 0-.278-1.205 4 4 0 0 0-.612-1.07l.817-.817c.369.437.665.918.889 1.444a5.6 5.6 0 0 1 .437 1.648h-1.253Z"
-        fill="#0566ED"
-      />
-    </svg>
+const MilestoneBadge = ({ milestone, variant = 'in-progress' }: MilestoneBadgeProps) => (
+  <span className={`issues-table-milestone-badge issues-table-milestone-badge--${variant}`}>
+    {variant === 'completed' ? (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="issues-table-milestone-icon">
+        <path d="M5.54171 9.45008L3.09171 7.00008L2.33337 7.75841L5.54171 10.9667L12.25 4.25841L11.4917 3.50008L5.54171 9.45008Z" fill="currentColor" />
+      </svg>
+    ) : (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        aria-hidden
+        className="issues-table-milestone-icon"
+      >
+        <path
+          d="M2.479 10.675a5.4 5.4 0 0 1-.89-1.444 5.6 5.6 0 0 1-.422-1.648h1.196a4 4 0 0 0 .278 1.205c.156.384.36.741.613 1.072L2.48 10.675ZM1.167 6.417a5.6 5.6 0 0 1 .437-1.648 5.4 5.4 0 0 1 .875-1.444l.817.817a4 4 0 0 0-.613 1.071 4 4 0 0 0-.278 1.205H1.167Zm5.22 6.387a5.6 5.6 0 0 1-1.641-.416 5.4 5.4 0 0 1-1.45-.868l.816-.845a4 4 0 0 0 1.072.626c.378.165.776.276 1.202.335v1.168Zm-2.245-9.479-.846-.846a5.4 5.4 0 0 1 1.473-.868 5.6 5.6 0 0 1 1.648-.416v1.167a4 4 0 0 0-1.205.335 4 4 0 0 0-1.07.628Zm3.412 9.479v-1.167a4 4 0 0 0 1.218-.328 4 4 0 0 0 1.085-.627l.846.845a5.4 5.4 0 0 1-1.45.871 5.6 5.6 0 0 1-1.7.406Zm2.333-9.479a4 4 0 0 0-1.094-.628 4 4 0 0 0-1.21-.335V1.196a5.6 5.6 0 0 1 1.655.416 5.4 5.4 0 0 1 1.466.868l-.817.846Zm1.633 7.35-.817-.817c.253-.331.457-.688.612-1.072.156-.384.249-.787.278-1.205h1.196a5.6 5.6 0 0 1-.422 1.648 5.4 5.4 0 0 1-.847 1.446Zm.117-4.258a4 4 0 0 0-.278-1.205 4 4 0 0 0-.612-1.07l.817-.817c.369.437.665.918.889 1.444a5.6 5.6 0 0 1 .437 1.648h-1.253Z"
+          fill="currentColor"
+        />
+      </svg>
+    )}
     {milestone}
   </span>
 );
+
+const getLastProcessedAt = (issue: Issue): string =>
+  issue.onlinePublicationConfirmedAt
+    ?? issue.printConfirmedAt
+    ?? issue.folioReviewConfirmedAt
+    ?? issue.folioPreparationConfirmedAt
+    ?? issue.folioArrangementConfirmedAt
+    ?? issue.articleLineupConfirmedAt
+    ?? issue.createdAt;
 
 interface RowActionsMenuProps {
   issue: Issue;
@@ -420,6 +436,16 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
     setTypeFilter('all');
   };
 
+  const showInProgressEmptyState =
+    activeTab === 'in-progress' && inProgressIssues.length === 0 && historyIssues.length > 0;
+  const showHistoryEmptyState =
+    activeTab === 'history' && historyIssues.length === 0 && inProgressIssues.length > 0;
+  const showTabEmptyState = showInProgressEmptyState || showHistoryEmptyState;
+  const inProgressTabLabel = showInProgressEmptyState
+    ? 'In progress'
+    : `In progress (${inProgressIssues.length})`;
+  const historyTabLabel = showHistoryEmptyState ? 'History' : `History (${historyIssues.length})`;
+
   return (
     <div className="issues-table-page">
       {/* Top header: title + Upload Schedule + Create */}
@@ -468,7 +494,7 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
           className={`issues-tab${activeTab === 'in-progress' ? ' issues-tab--active' : ''}`}
           onClick={() => setActiveTab('in-progress')}
         >
-          In progress ({inProgressIssues.length})
+          {inProgressTabLabel}
         </button>
         <button
           type="button"
@@ -477,50 +503,82 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
           className={`issues-tab${activeTab === 'history' ? ' issues-tab--active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
-          History ({historyIssues.length})
+          {historyTabLabel}
         </button>
       </div>
 
-      {/* Search + filters */}
-      <div className="issues-toolbar">
-        <label className="issues-search">
-          <span className="visually-hidden">Search issues</span>
-          <input
-            type="text"
-            placeholder="Search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+      {showTabEmptyState ? (
+        <div className="issues-tab-empty-state">
+          <img
+            src="/assets/issue-empty-state.png"
+            alt=""
+            className="issues-tab-empty-image"
+            aria-hidden
           />
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-              fill="#868E94"
-            />
-          </svg>
-        </label>
-
-        <div className="issues-toolbar-filters">
-          <FilterDropdown
-            label="Journal"
-            value={journalFilter}
-            displayValue={journalDisplay}
-            options={journalOptions}
-            onSelect={setJournalFilter}
-          />
-          <FilterDropdown
-            label="Issue Type"
-            value={typeFilter}
-            displayValue={typeDisplay}
-            options={typeOptions}
-            onSelect={id => setTypeFilter(id as IssueTypeFilter)}
-            alignRight
-          />
+          <div className="issues-tab-empty-copy">
+            <h2>{showHistoryEmptyState ? 'No completed issues yet' : 'No issues in progress'}</h2>
+            <p>Compile articles and get your issue published in few clicks.</p>
+          </div>
+          {showHistoryEmptyState ? (
+            <button
+              type="button"
+              className="issues-tab-empty-link"
+              onClick={() => setActiveTab('in-progress')}
+            >
+              View Issue In progress
+            </button>
+          ) : (
+            <button type="button" className="issues-tab-empty-create" onClick={onCreate}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor" />
+              </svg>
+              Create Issue
+            </button>
+          )}
         </div>
-      </div>
+      ) : (
+        <>
 
-      {/* Data table */}
-      <div className="issues-data-table-wrapper">
-        <table className="issues-data-table">
+          {/* Search + filters */}
+          <div className="issues-toolbar">
+            <label className="issues-search">
+              <span className="visually-hidden">Search issues</span>
+              <input
+                type="text"
+                placeholder="Search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                  fill="#868E94"
+                />
+              </svg>
+            </label>
+
+            <div className="issues-toolbar-filters">
+              <FilterDropdown
+                label="Journal"
+                value={journalFilter}
+                displayValue={journalDisplay}
+                options={journalOptions}
+                onSelect={setJournalFilter}
+              />
+              <FilterDropdown
+                label="Issue Type"
+                value={typeFilter}
+                displayValue={typeDisplay}
+                options={typeOptions}
+                onSelect={id => setTypeFilter(id as IssueTypeFilter)}
+                alignRight
+              />
+            </div>
+          </div>
+
+          {/* Data table */}
+          <div className="issues-data-table-wrapper">
+            <table className="issues-data-table">
           <thead>
             <tr>
               <th>Journal</th>
@@ -528,14 +586,16 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
               <th>Issue Type</th>
               <th>Assigned Articles</th>
               <th>Milestone</th>
-              <th>Estimated Publication</th>
-              <th aria-label="Row actions" className="issues-data-table-action-th" />
+              <th>{activeTab === 'history' ? 'Last Processed' : 'Estimated Publication'}</th>
+              {activeTab === 'in-progress' && (
+                <th aria-label="Row actions" className="issues-data-table-action-th" />
+              )}
             </tr>
           </thead>
           <tbody>
             {filteredIssues.length === 0 ? (
               <tr>
-                <td colSpan={7} className="issues-data-table-empty">
+                <td colSpan={activeTab === 'history' ? 6 : 7} className="issues-data-table-empty">
                   {visibleSource.length === 0
                     ? activeTab === 'in-progress'
                       ? 'No issues in progress yet.'
@@ -576,26 +636,37 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
                   <td>{ISSUE_TYPE_LABEL[issue.issueType]}</td>
                   <td>{issue.assignedArticleIds.length}</td>
                   <td>
-                    <MilestoneBadge milestone={issue.milestone} />
-                  </td>
-                  <td>{formatEstimatedPublication(issue.publicationDate)}</td>
-                  <td
-                    className="issues-data-table-action-cell"
-                    onClick={event => event.stopPropagation()}
-                  >
-                    <RowActionsMenu
-                      issue={issue}
-                      onView={onView}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
+                    <MilestoneBadge
+                      milestone={issue.milestone}
+                      variant={activeTab === 'history' ? 'completed' : 'in-progress'}
                     />
                   </td>
+                  <td>
+                    {activeTab === 'history'
+                      ? formatEstimatedPublication(getLastProcessedAt(issue))
+                      : formatEstimatedPublication(issue.publicationDate)}
+                  </td>
+                  {activeTab === 'in-progress' && (
+                    <td
+                      className="issues-data-table-action-cell"
+                      onClick={event => event.stopPropagation()}
+                    >
+                      <RowActionsMenu
+                        issue={issue}
+                        onView={onView}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))
             )}
           </tbody>
-        </table>
-      </div>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };

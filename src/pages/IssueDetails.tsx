@@ -1,12 +1,23 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ArticleLineupModal from '../components/ArticleLineupModal';
 import EditIssueDetailsModal from '../components/EditIssueDetailsModal';
+import FolioArrangeModal from '../components/FolioArrangeModal';
+import FolioReviewModal from '../components/FolioReviewModal';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Toast, { ToastData } from '../components/Toast';
 import { useIssues } from '../hooks/useIssues';
-import type { Issue, IssueOutputFormat, IssueType } from '../types/issue';
+import type {
+  ArticleLineupRevision,
+  FolioArrangement,
+  FolioCreationRevision,
+  FolioPreparationRevision,
+  FolioPreparationRevisionReason,
+  Issue,
+  IssueOutputFormat,
+  IssueType,
+} from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import './IssueDetails.css';
 
@@ -40,7 +51,11 @@ const OUTPUT_FORMAT_LABEL: Record<IssueOutputFormat, string> = {
 };
 
 const CURRENT_USER_NAME = 'John Doe';
+const SYSTEM_USER_NAME = 'System';
 const ESTIMATED_MILESTONE_DAYS = 5;
+const FOLIO_PREPARATION_DURATION_MS = 10 * 1000;
+const PRINT_DURATION_MS = 10 * 1000;
+const ONLINE_PUBLICATION_DURATION_MS = 10 * 1000;
 
 const getValidDate = (value: string): Date => {
   const date = new Date(value);
@@ -59,7 +74,10 @@ const getDurationLabel = (start: Date, end: Date): string => {
   const hour = minute * 60;
   const day = hour * 24;
 
-  if (milliseconds < minute) return 'Less than 1 minute';
+  if (milliseconds < minute) {
+    const seconds = Math.max(1, Math.round(milliseconds / 1000));
+    return `${seconds} ${seconds === 1 ? 'sec' : 'secs'}`;
+  }
 
   const parts: string[] = [];
   const days = Math.floor(milliseconds / day);
@@ -77,6 +95,89 @@ const getDurationLabel = (start: Date, end: Date): string => {
 
 const statusLabel = (status: Issue['status']): string =>
   status === 'completed' ? 'Completed' : 'In progress';
+
+const getNextMilestoneAfterFolioReview = (outputFormat: IssueOutputFormat): Issue['milestone'] =>
+  outputFormat === 'online' ? 'Online Publication' : 'Print';
+
+const getMilestoneAfterPrint = (outputFormat: IssueOutputFormat): Issue['milestone'] =>
+  outputFormat === 'both' ? 'Online Publication' : 'Print';
+
+const createFolioPreparationRevision = (
+  issue: Issue,
+  reason: FolioPreparationRevisionReason,
+  submittedAt: string,
+): FolioPreparationRevision | undefined => {
+  const startedAt = issue.folioPreparationStartedAt ?? issue.folioArrangementConfirmedAt;
+  if (!startedAt) return undefined;
+
+  return {
+    id: `${reason}-${submittedAt}`,
+    startedAt,
+    completedAt: issue.folioPreparationConfirmedAt ?? submittedAt,
+    reason,
+    submittedAt,
+    submittedBy: CURRENT_USER_NAME,
+  };
+};
+
+const getFolioPreparationRevisions = (
+  issue: Issue,
+  reason: FolioPreparationRevisionReason,
+  submittedAt: string,
+): FolioPreparationRevision[] => {
+  const revision = createFolioPreparationRevision(issue, reason, submittedAt);
+  return revision
+    ? [...(issue.folioPreparationRevisions ?? []), revision]
+    : issue.folioPreparationRevisions ?? [];
+};
+
+const createArticleLineupRevision = (
+  issue: Issue,
+  submittedAt: string,
+): ArticleLineupRevision | undefined => {
+  const completedAt = issue.articleLineupConfirmedAt;
+  if (!completedAt) return undefined;
+
+  return {
+    id: `article-lineup-${submittedAt}`,
+    startedAt: issue.articleLineupStartedAt ?? issue.createdAt,
+    completedAt,
+    submittedAt,
+    submittedBy: CURRENT_USER_NAME,
+    articleCount: issue.assignedArticleIds.length,
+  };
+};
+
+const getArticleLineupRevisions = (issue: Issue, submittedAt: string): ArticleLineupRevision[] => {
+  const revision = createArticleLineupRevision(issue, submittedAt);
+  return revision
+    ? [...(issue.articleLineupRevisions ?? []), revision]
+    : issue.articleLineupRevisions ?? [];
+};
+
+const createFolioCreationRevision = (
+  issue: Issue,
+  submittedAt: string,
+): FolioCreationRevision | undefined => {
+  const completedAt = issue.folioArrangementConfirmedAt;
+  if (!completedAt) return undefined;
+
+  return {
+    id: `folio-creation-${submittedAt}`,
+    startedAt: issue.articleLineupConfirmedAt ?? issue.createdAt,
+    completedAt,
+    submittedAt,
+    submittedBy: CURRENT_USER_NAME,
+    itemCount: issue.folioArrangement?.items.length ?? 0,
+  };
+};
+
+const getFolioCreationRevisions = (issue: Issue, submittedAt: string): FolioCreationRevision[] => {
+  const revision = createFolioCreationRevision(issue, submittedAt);
+  return revision
+    ? [...(issue.folioCreationRevisions ?? []), revision]
+    : issue.folioCreationRevisions ?? [];
+};
 
 const InProgressStatusIcon = () => (
   <svg
@@ -108,10 +209,70 @@ const InProgressStatusIcon = () => (
   </svg>
 );
 
+const CompletedStatusIcon = () => (
+  <svg className="issue-status-pill-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+    <path
+      d="M5.54171 9.45008L3.09171 7.00008L2.33337 7.75841L5.54171 10.9667L12.25 4.25841L11.4917 3.50008L5.54171 9.45008Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const getActiveMilestoneIndex = (issue: Issue, milestones: DetailMilestone[]): number => {
+  if (issue.status === 'completed') return milestones.length;
+
   const normalizedCurrent = issue.milestone === 'Final Review' ? 'Folio Review' : issue.milestone;
   const index = milestones.findIndex(m => m === normalizedCurrent);
   return index >= 0 ? index : 0;
+};
+
+const getMilestoneConfirmation = (issue: Issue, label: DetailMilestone, hasLineupHistory: boolean) => {
+  if (label === 'Article Lineup' && hasLineupHistory) {
+    return {
+      confirmedAt: issue.articleLineupConfirmedAt ?? issue.createdAt,
+      confirmedBy: issue.articleLineupConfirmedBy ?? CURRENT_USER_NAME,
+    };
+  }
+
+  if (label === 'Folio Creation' && issue.folioArrangementConfirmedAt) {
+    return {
+      confirmedAt: issue.folioArrangementConfirmedAt,
+      confirmedBy: issue.folioArrangementConfirmedBy ?? CURRENT_USER_NAME,
+    };
+  }
+
+  if (label === 'Folio Preparation' && issue.folioPreparationConfirmedAt) {
+    return {
+      confirmedAt: issue.folioPreparationConfirmedAt,
+      confirmedBy: issue.folioPreparationConfirmedBy ?? SYSTEM_USER_NAME,
+    };
+  }
+
+  if (label === 'Folio Review' && issue.folioReviewConfirmedAt) {
+    return {
+      confirmedAt: issue.folioReviewConfirmedAt,
+      confirmedBy: issue.folioReviewConfirmedBy ?? CURRENT_USER_NAME,
+    };
+  }
+
+  if (label === 'Print' && issue.printConfirmedAt) {
+    return {
+      confirmedAt: issue.printConfirmedAt,
+      confirmedBy: issue.printConfirmedBy ?? SYSTEM_USER_NAME,
+    };
+  }
+
+  if (label === 'Online Publication' && issue.onlinePublicationConfirmedAt) {
+    return {
+      confirmedAt: issue.onlinePublicationConfirmedAt,
+      confirmedBy: issue.onlinePublicationConfirmedBy ?? SYSTEM_USER_NAME,
+    };
+  }
+
+  return {
+    confirmedAt: undefined,
+    confirmedBy: undefined,
+  };
 };
 
 const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
@@ -119,11 +280,147 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLineupModal, setShowLineupModal] = useState(false);
+  const [showFolioArrangeModal, setShowFolioArrangeModal] = useState(false);
+  const [showFolioReviewModal, setShowFolioReviewModal] = useState(false);
+  const [showArticleLineupRevisions, setShowArticleLineupRevisions] = useState(false);
+  const [showFolioCreationRevisions, setShowFolioCreationRevisions] = useState(false);
+  const [showFolioPreparationRevisions, setShowFolioPreparationRevisions] = useState(false);
   const navigate = useNavigate();
   const { issueId } = useParams();
+  const [searchParams] = useSearchParams();
   const { issues, updateIssue } = useIssues();
 
   const issue = issues.find(i => i.id === issueId);
+  const isIssueHistory = issue?.status === 'completed';
+
+  useEffect(() => {
+    setShowArticleLineupRevisions(false);
+    setShowFolioCreationRevisions(false);
+    setShowFolioPreparationRevisions(false);
+  }, [issueId]);
+
+  useEffect(() => {
+    if (!issue) return;
+
+    const task = searchParams.get('task');
+    if (!task) return;
+
+    if (task === 'article-lineup') {
+      setShowLineupModal(true);
+    } else if (task === 'folio-creation') {
+      setShowFolioArrangeModal(true);
+    } else if (task === 'folio-review') {
+      setShowFolioReviewModal(true);
+    }
+
+    navigate(`/issues/${issue.id}`, { replace: true });
+  }, [issue, navigate, searchParams]);
+
+  useEffect(() => {
+    if (
+      !issue
+      || issue.milestone !== 'Folio Preparation'
+      || !issue.folioArrangementConfirmedAt
+      || issue.folioPreparationConfirmedAt
+    ) {
+      return;
+    }
+
+    const startedAt = getValidDate(issue.folioPreparationStartedAt ?? issue.folioArrangementConfirmedAt).getTime();
+    const completesAt = startedAt + FOLIO_PREPARATION_DURATION_MS;
+    const delay = Math.max(0, completesAt - Date.now());
+
+    const timeoutId = window.setTimeout(() => {
+      updateIssue(issue.id, {
+        folioPreparationConfirmedAt: new Date(completesAt).toISOString(),
+        folioPreparationConfirmedBy: SYSTEM_USER_NAME,
+        milestone: 'Final Review',
+      });
+      setToast({
+        id: `folio-preparation-completed-${Date.now()}`,
+        variant: 'info',
+        message: 'Folio preparation completed. Folio review is now in progress.',
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    issue,
+    updateIssue,
+  ]);
+
+  useEffect(() => {
+    if (
+      !issue
+      || issue.milestone !== 'Print'
+      || !issue.folioReviewConfirmedAt
+      || issue.printConfirmedAt
+    ) {
+      return;
+    }
+
+    const startedAt = getValidDate(issue.folioReviewConfirmedAt).getTime();
+    const completesAt = startedAt + PRINT_DURATION_MS;
+    const delay = Math.max(0, completesAt - Date.now());
+
+    const timeoutId = window.setTimeout(() => {
+      const isPrintOnly = issue.outputFormat === 'print';
+      updateIssue(issue.id, {
+        printConfirmedAt: new Date(completesAt).toISOString(),
+        printConfirmedBy: SYSTEM_USER_NAME,
+        milestone: getMilestoneAfterPrint(issue.outputFormat),
+        status: isPrintOnly ? 'completed' : 'in-progress',
+      });
+      setToast({
+        id: `print-completed-${Date.now()}`,
+        variant: 'info',
+        message: isPrintOnly
+          ? 'Print completed. Issue processing is complete.'
+          : 'Print completed. Online publication is now in progress.',
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    issue,
+    updateIssue,
+  ]);
+
+  useEffect(() => {
+    if (
+      !issue
+      || issue.milestone !== 'Online Publication'
+      || issue.onlinePublicationConfirmedAt
+    ) {
+      return;
+    }
+
+    const onlineStartedAt = issue.printConfirmedAt ?? issue.folioReviewConfirmedAt;
+    if (!onlineStartedAt) return;
+
+    const startedAt = getValidDate(onlineStartedAt).getTime();
+    const completesAt = startedAt + ONLINE_PUBLICATION_DURATION_MS;
+    const delay = Math.max(0, completesAt - Date.now());
+
+    const timeoutId = window.setTimeout(() => {
+      updateIssue(issue.id, {
+        onlinePublicationConfirmedAt: new Date(completesAt).toISOString(),
+        onlinePublicationConfirmedBy: SYSTEM_USER_NAME,
+        milestone: 'Online Publication',
+        status: 'completed',
+      });
+      setToast({
+        id: `online-publication-completed-${Date.now()}`,
+        variant: 'info',
+        message: 'Online publication completed. Issue processing is complete.',
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    issue,
+    updateIssue,
+  ]);
 
   const handleLogout = () => {
     onLogout();
@@ -131,6 +428,34 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
   };
 
   const dismissToast = () => setToast(null);
+
+  const restartFolioPreparation = (
+    currentIssue: Issue,
+    reason: FolioPreparationRevisionReason,
+    submittedAt: string,
+    message: string,
+  ) => {
+    updateIssue(currentIssue.id, {
+      folioPreparationStartedAt: submittedAt,
+      folioPreparationRevisions: getFolioPreparationRevisions(currentIssue, reason, submittedAt),
+      folioPreparationConfirmedAt: undefined,
+      folioPreparationConfirmedBy: undefined,
+      folioReviewConfirmedAt: undefined,
+      folioReviewConfirmedBy: undefined,
+      printConfirmedAt: undefined,
+      printConfirmedBy: undefined,
+      onlinePublicationConfirmedAt: undefined,
+      onlinePublicationConfirmedBy: undefined,
+      milestone: 'Folio Preparation',
+      status: 'in-progress',
+    });
+    setShowFolioReviewModal(false);
+    setToast({
+      id: `folio-preparation-restarted-${Date.now()}`,
+      variant: 'success',
+      message,
+    });
+  };
 
   const handleEditDetails = () => {
     setShowEditModal(true);
@@ -141,26 +466,94 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
   };
 
   const handleArrangeFolio = () => {
+    setShowFolioArrangeModal(true);
+  };
+
+  const handleReviewFolio = () => {
+    setShowFolioReviewModal(true);
+  };
+
+  const handleApproveFolioReview = () => {
+    if (!issue) return;
+
+    const reviewedAt = new Date().toISOString();
+    if (issue.folioReviewConfirmedAt) {
+      restartFolioPreparation(
+        issue,
+        're-review',
+        reviewedAt,
+        'Re-review submitted. Folio preparation restarted.',
+      );
+      return;
+    }
+
+    updateIssue(issue.id, {
+      folioReviewConfirmedAt: reviewedAt,
+      folioReviewConfirmedBy: CURRENT_USER_NAME,
+      printConfirmedAt: undefined,
+      printConfirmedBy: undefined,
+      onlinePublicationConfirmedAt: undefined,
+      onlinePublicationConfirmedBy: undefined,
+      milestone: getNextMilestoneAfterFolioReview(issue.outputFormat),
+    });
+    setShowFolioReviewModal(false);
     setToast({
-      id: `folio-arrange-${Date.now()}`,
-      variant: 'info',
-      message: 'Folio arrangement is coming soon.',
+      id: `folio-reviewed-${Date.now()}`,
+      variant: 'success',
+      message: 'Folio review approved successfully.',
     });
   };
 
+  const handleSubmitFolioCorrection = () => {
+    if (!issue) return;
+
+    const submittedAt = new Date().toISOString();
+    restartFolioPreparation(
+      issue,
+      'correction',
+      submittedAt,
+      'Correction uploaded. Folio preparation restarted.',
+    );
+  };
+
   const handleConfirmLineup = (id: string, articleIds: string[]) => {
+    if (articleIds.length === 0) return;
+
+    const currentIssue = issue?.id === id ? issue : issues.find(i => i.id === id);
+    const confirmedAt = new Date().toISOString();
+    const isLineupRevision = Boolean(currentIssue?.articleLineupConfirmedAt);
+
     updateIssue(id, {
       assignedArticleIds: articleIds,
-      articleLineupConfirmedAt: new Date().toISOString(),
+      articleLineupStartedAt: confirmedAt,
+      articleLineupRevisions: currentIssue
+        ? getArticleLineupRevisions(currentIssue, confirmedAt)
+        : [],
+      articleLineupConfirmedAt: confirmedAt,
       articleLineupConfirmedBy: CURRENT_USER_NAME,
-      milestone: articleIds.length > 0 ? 'Folio Creation' : 'Article Lineup',
+      folioArrangement: undefined,
+      folioCreationRevisions: undefined,
+      folioArrangementConfirmedAt: undefined,
+      folioArrangementConfirmedBy: undefined,
+      folioPreparationStartedAt: undefined,
+      folioPreparationRevisions: undefined,
+      folioPreparationConfirmedAt: undefined,
+      folioPreparationConfirmedBy: undefined,
+      folioReviewConfirmedAt: undefined,
+      folioReviewConfirmedBy: undefined,
+      printConfirmedAt: undefined,
+      printConfirmedBy: undefined,
+      onlinePublicationConfirmedAt: undefined,
+      onlinePublicationConfirmedBy: undefined,
+      milestone: 'Folio Creation',
+      status: 'in-progress',
     });
     setToast({
       id: `lineup-confirmed-${Date.now()}`,
       variant: 'success',
-      message: articleIds.length > 0
-        ? 'Article lineup confirmed successfully.'
-        : 'Article lineup saved with no assigned articles.',
+      message: isLineupRevision
+        ? 'Article lineup updated. Folio creation needs to be completed again.'
+        : 'Article lineup confirmed successfully.',
     });
   };
 
@@ -173,6 +566,40 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
     });
   };
 
+  const handleSaveFolioArrangement = (id: string, arrangement: FolioArrangement) => {
+    const currentIssue = issue?.id === id ? issue : issues.find(i => i.id === id);
+    const folioCreationRevisions = currentIssue
+      ? getFolioCreationRevisions(currentIssue, arrangement.submittedAt)
+      : [];
+    const folioPreparationRevisions = currentIssue
+      ? getFolioPreparationRevisions(currentIssue, 'folio-edit', arrangement.submittedAt)
+      : [];
+
+    updateIssue(id, {
+      folioArrangement: arrangement,
+      folioCreationRevisions,
+      folioArrangementConfirmedAt: arrangement.submittedAt,
+      folioArrangementConfirmedBy: arrangement.submittedBy,
+      folioPreparationStartedAt: arrangement.submittedAt,
+      folioPreparationRevisions,
+      folioPreparationConfirmedAt: undefined,
+      folioPreparationConfirmedBy: undefined,
+      folioReviewConfirmedAt: undefined,
+      folioReviewConfirmedBy: undefined,
+      printConfirmedAt: undefined,
+      printConfirmedBy: undefined,
+      onlinePublicationConfirmedAt: undefined,
+      onlinePublicationConfirmedBy: undefined,
+      milestone: 'Folio Preparation',
+      status: 'in-progress',
+    });
+    setToast({
+      id: `folio-arranged-${Date.now()}`,
+      variant: 'success',
+      message: 'Folio creation completed successfully',
+    });
+  };
+
   const timeline = useMemo(() => {
     if (!issue) return [];
     const milestones = OUTPUT_FORMAT_MILESTONES[issue.outputFormat];
@@ -182,11 +609,12 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
     let nextStart = base;
 
     return milestones.map((label, index) => {
-      const isArticleLineup = label === 'Article Lineup';
-      const confirmedAt = isArticleLineup && hasLineupHistory
-        ? issue.articleLineupConfirmedAt ?? issue.createdAt
-        : undefined;
-      const start = nextStart;
+      const { confirmedAt, confirmedBy } = getMilestoneConfirmation(issue, label, hasLineupHistory);
+      const start = label === 'Article Lineup' && issue.articleLineupStartedAt
+        ? getValidDate(issue.articleLineupStartedAt)
+        : label === 'Folio Preparation' && issue.folioPreparationStartedAt
+          ? getValidDate(issue.folioPreparationStartedAt)
+          : nextStart;
       const confirmedEnd = confirmedAt ? getValidDate(confirmedAt) : undefined;
       const estimatedCompletion = addDays(start, ESTIMATED_MILESTONE_DAYS);
       const completion = confirmedEnd ?? estimatedCompletion;
@@ -199,9 +627,8 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
         completion,
         duration: getDurationLabel(start, completion),
         confirmedAt,
-        confirmedBy: isArticleLineup && hasLineupHistory
-          ? issue.articleLineupConfirmedBy ?? CURRENT_USER_NAME
-          : undefined,
+        confirmedBy,
+        isSystemGenerated: label === 'Folio Preparation' || label === 'Print' || label === 'Online Publication',
         state: index < activeIndex ? 'completed' : index === activeIndex ? 'active' : 'upcoming',
       };
     });
@@ -246,12 +673,14 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                     </h1>
                   </div>
 
-                  <button type="button" className="issue-details-conversation-button">
-                    New Conversation
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M7 10l5 5 5-5H7Z" fill="currentColor" />
-                    </svg>
-                  </button>
+                  {!isIssueHistory && (
+                    <button type="button" className="issue-details-conversation-button">
+                      New Conversation
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path d="M7 10l5 5 5-5H7Z" fill="currentColor" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <section className="issue-details-section" aria-labelledby="issue-details-heading">
@@ -259,15 +688,17 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                     <h2 id="issue-details-heading" className="issue-details-section-title">
                       Issue Details
                     </h2>
-                    <button type="button" className="issue-details-edit-button" onClick={handleEditDetails}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                        <path
-                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                      Edit Details
-                    </button>
+                    {!isIssueHistory && (
+                      <button type="button" className="issue-details-edit-button" onClick={handleEditDetails}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <path
+                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                        Edit Details
+                      </button>
+                    )}
                   </div>
 
                   <dl className="issue-details-grid">
@@ -292,6 +723,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                       <dd>
                         <span className={`issue-status-pill issue-status-pill--${issue.status}`}>
                           {issue.status === 'in-progress' && <InProgressStatusIcon />}
+                          {issue.status === 'completed' && <CompletedStatusIcon />}
                           {statusLabel(issue.status)}
                         </span>
                       </dd>
@@ -350,7 +782,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                         <div className="issue-progress-content">
                           <div className="issue-progress-row">
                             <span className="issue-progress-title">{step.label}</span>
-                            {step.label === 'Article Lineup' && step.confirmedAt && (
+                            {!isIssueHistory && step.label === 'Article Lineup' && step.confirmedAt && (
                               <button
                                 type="button"
                                 className="issue-progress-edit-action"
@@ -359,14 +791,37 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                                 Edit
                               </button>
                             )}
-                            {step.state === 'active' && step.label === 'Article Lineup' && !step.confirmedAt && (
+                            {!isIssueHistory && step.label === 'Folio Creation' && step.confirmedAt && (
+                              <button
+                                type="button"
+                                className="issue-progress-edit-action"
+                                onClick={handleArrangeFolio}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {!isIssueHistory && step.label === 'Folio Review' && step.confirmedAt && (
+                              <button
+                                type="button"
+                                className="issue-progress-edit-action"
+                                onClick={handleReviewFolio}
+                              >
+                                Re-review
+                              </button>
+                            )}
+                            {!isIssueHistory && step.state === 'active' && step.label === 'Article Lineup' && !step.confirmedAt && (
                               <button type="button" className="issue-progress-action" onClick={handleOpenLineup}>
                                 {issue.assignedArticleIds.length > 0 ? 'Confirm' : 'Create'}
                               </button>
                             )}
-                            {step.state === 'active' && step.label === 'Folio Creation' && (
+                            {!isIssueHistory && step.state === 'active' && step.label === 'Folio Creation' && (
                               <button type="button" className="issue-progress-action" onClick={handleArrangeFolio}>
                                 Arrange
+                              </button>
+                            )}
+                            {!isIssueHistory && step.state === 'active' && step.label === 'Folio Review' && (
+                              <button type="button" className="issue-progress-action" onClick={handleReviewFolio}>
+                                Review
                               </button>
                             )}
                           </div>
@@ -385,16 +840,18 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                                   Duration: <span className="issue-progress-date-value">{step.duration}</span>
                                 </span>
                               </p>
-                              <p className="issue-progress-confirmed">
-                                <span>
-                                  Confirmed by{' '}
-                                  <span className="issue-progress-confirmed-value">{step.confirmedBy}</span>
-                                </span>
-                                <span className="issue-progress-confirmed-dot" aria-hidden />
-                                <span className="issue-progress-confirmed-value">
-                                  {formatDisplayDateTime(step.confirmedAt)}
-                                </span>
-                              </p>
+                              {!step.isSystemGenerated && (
+                                <p className="issue-progress-confirmed">
+                                  <span>
+                                    Confirmed by{' '}
+                                    <span className="issue-progress-confirmed-value">{step.confirmedBy}</span>
+                                  </span>
+                                  <span className="issue-progress-confirmed-dot" aria-hidden />
+                                  <span className="issue-progress-confirmed-value">
+                                    {formatDisplayDateTime(step.confirmedAt)}
+                                  </span>
+                                </p>
+                              )}
                             </div>
                           ) : (
                             <p className="issue-progress-dates">
@@ -403,6 +860,150 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
                               <span>Est. Completion: {formatDisplayDateTime(step.completion)}</span>
                             </p>
                           )}
+                          {step.label === 'Article Lineup' && issue.articleLineupRevisions?.length ? (
+                            <div className="issue-progress-revisions">
+                              {showArticleLineupRevisions && (
+                                <div className="issue-progress-revision-list">
+                                  {issue.articleLineupRevisions.map((revision, revisionIndex) => {
+                                    const revisionStart = getValidDate(revision.startedAt);
+                                    const revisionEnd = getValidDate(revision.completedAt);
+                                    return (
+                                      <div className="issue-progress-revision" key={revision.id}>
+                                        <p className="issue-progress-revision-title">
+                                          Revision {revisionIndex + 1}
+                                        </p>
+                                        <p className="issue-progress-revision-dates">
+                                          <span>
+                                            Start:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionStart)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            End:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionEnd)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            Duration:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {getDurationLabel(revisionStart, revisionEnd)}
+                                            </span>
+                                          </span>
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="issue-progress-revision-toggle"
+                                onClick={() => setShowArticleLineupRevisions(prev => !prev)}
+                              >
+                                {showArticleLineupRevisions ? 'View Less' : 'View More'}
+                              </button>
+                            </div>
+                          ) : null}
+                          {step.label === 'Folio Creation' && issue.folioCreationRevisions?.length ? (
+                            <div className="issue-progress-revisions">
+                              {showFolioCreationRevisions && (
+                                <div className="issue-progress-revision-list">
+                                  {issue.folioCreationRevisions.map((revision, revisionIndex) => {
+                                    const revisionStart = getValidDate(revision.startedAt);
+                                    const revisionEnd = getValidDate(revision.completedAt);
+                                    return (
+                                      <div className="issue-progress-revision" key={revision.id}>
+                                        <p className="issue-progress-revision-title">
+                                          Revision {revisionIndex + 1}
+                                        </p>
+                                        <p className="issue-progress-revision-dates">
+                                          <span>
+                                            Start:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionStart)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            End:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionEnd)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            Duration:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {getDurationLabel(revisionStart, revisionEnd)}
+                                            </span>
+                                          </span>
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="issue-progress-revision-toggle"
+                                onClick={() => setShowFolioCreationRevisions(prev => !prev)}
+                              >
+                                {showFolioCreationRevisions ? 'View Less' : 'View More'}
+                              </button>
+                            </div>
+                          ) : null}
+                          {step.label === 'Folio Preparation' && issue.folioPreparationRevisions?.length ? (
+                            <div className="issue-progress-revisions">
+                              {showFolioPreparationRevisions && (
+                                <div className="issue-progress-revision-list">
+                                  {issue.folioPreparationRevisions.map((revision, revisionIndex) => {
+                                    const revisionStart = getValidDate(revision.startedAt);
+                                    const revisionEnd = getValidDate(revision.completedAt);
+                                    return (
+                                      <div className="issue-progress-revision" key={revision.id}>
+                                        <p className="issue-progress-revision-title">
+                                          Revision {revisionIndex + 1}
+                                        </p>
+                                        <p className="issue-progress-revision-dates">
+                                          <span>
+                                            Start:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionStart)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            End:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {formatDisplayDateTime(revisionEnd)}
+                                            </span>
+                                          </span>
+                                          <span className="issue-progress-date-separator">|</span>
+                                          <span>
+                                            Duration:{' '}
+                                            <span className="issue-progress-date-value">
+                                              {getDurationLabel(revisionStart, revisionEnd)}
+                                            </span>
+                                          </span>
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="issue-progress-revision-toggle"
+                                onClick={() => setShowFolioPreparationRevisions(prev => !prev)}
+                              >
+                                {showFolioPreparationRevisions ? 'View Less' : 'View More'}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </li>
                     ))}
@@ -426,6 +1027,19 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
         issue={issue ?? null}
         onClose={() => setShowEditModal(false)}
         onSave={handleSaveIssueDetails}
+      />
+      <FolioArrangeModal
+        isOpen={showFolioArrangeModal}
+        issue={issue ?? null}
+        onClose={() => setShowFolioArrangeModal(false)}
+        onSave={handleSaveFolioArrangement}
+      />
+      <FolioReviewModal
+        isOpen={showFolioReviewModal}
+        issue={issue ?? null}
+        onClose={() => setShowFolioReviewModal(false)}
+        onApprove={handleApproveFolioReview}
+        onCorrectionSubmit={handleSubmitFolioCorrection}
       />
     </div>
   );

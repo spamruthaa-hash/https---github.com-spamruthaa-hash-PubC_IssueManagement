@@ -24,6 +24,37 @@
   font-family: 'Source Sans Pro', sans-serif;
 }
 
+.article-lineup-modal--back-flow {
+  animation: article-lineup-back-flow-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.article-lineup-modal--back-flow.article-lineup-modal--closing {
+  pointer-events: none;
+  animation: article-lineup-back-flow-exit 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes article-lineup-back-flow-enter {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes article-lineup-back-flow-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(14px) scale(0.99);
+  }
+}
+
 .article-lineup-main {
   position: relative;
   display: flex;
@@ -47,12 +78,41 @@
   border-bottom: 1px solid #c2c6ca;
 }
 
+.article-lineup-header--back {
+  justify-content: flex-start;
+  padding: 14px 24px 14px 16px;
+}
+
+.article-lineup-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .article-lineup-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
   line-height: 24px;
   letter-spacing: -0.5px;
+}
+
+.article-lineup-back {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: #35424d;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.article-lineup-back:hover {
+  background: #f6f7f7;
 }
 
 .article-lineup-close {
@@ -813,12 +873,19 @@
   transition: filter 0.15s ease;
 }
 
-.article-lineup-confirm:hover {
+.article-lineup-confirm:hover:not(:disabled) {
   filter: brightness(0.9);
 }
 
-.article-lineup-confirm:active {
+.article-lineup-confirm:active:not(:disabled) {
   filter: brightness(0.8);
+}
+
+.article-lineup-confirm:disabled {
+  background: #d7d9db;
+  color: #868e94;
+  cursor: not-allowed;
+  filter: none;
 }
 
 .article-lineup-fab {
@@ -852,6 +919,13 @@
 
 .article-lineup-fab svg {
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-lineup-modal--back-flow,
+  .article-lineup-modal--back-flow.article-lineup-modal--closing {
+    animation: none;
+  }
 }
 
 @media (max-width: 860px) {

@@ -224,8 +224,8 @@
 
 .issue-status-pill--completed {
   color: #007a39;
-  border: 1px solid #75d59a;
-  background: #e8f8ee;
+  border: 1px solid #8bdfb2;
+  background: #dafbe8;
 }
 
 .issue-progress-section {
@@ -364,6 +364,69 @@
   height: 4px;
   border-radius: 50%;
   background: #5d6871;
+}
+
+.issue-progress-revisions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.issue-progress-revision-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.issue-progress-revision {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.issue-progress-revision-title {
+  margin: 0;
+  color: #5d6871;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.issue-progress-revision-dates {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  color: #5d6871;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.issue-progress-revision-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #1c40ca;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #1c40ca;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.issue-progress-revision-toggle:hover,
+.issue-progress-revision-toggle:focus-visible {
+  color: #163499;
+  border-bottom-color: #163499;
+  outline: none;
 }
 
 .issue-progress-action {
