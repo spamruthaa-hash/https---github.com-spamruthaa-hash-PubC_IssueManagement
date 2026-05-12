@@ -221,7 +221,7 @@ const Issues = ({ onLogout }: IssuesProps) => {
       <div className="dashboard-layout">
         <Sidebar isCollapsed={sidebarCollapsed} />
 
-        <main className="dashboard-main">
+        <main className={`dashboard-main${sidebarCollapsed ? ' dashboard-main--sidebar-collapsed' : ''}`}>
           {issues.length === 0 ? (
             renderEmptyState()
           ) : (

@@ -1,10 +1,13 @@
 .issues-container {
-  padding: 16px;
+  padding: 16px var(--dashboard-page-padding-x, 16px);
   height: 100%;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 4px;
   background: #FFFFFF;
+  min-width: 0;
 }
 
 /* When the page is populated, swap the centered empty-state layout for a top-aligned
@@ -215,7 +218,7 @@
 /* Responsive */
 @media (max-width: 768px) {
   .issues-container {
-    padding: 12px;
+    padding: 12px var(--dashboard-page-padding-x, 16px);
   }
 
   .empty-state-content {

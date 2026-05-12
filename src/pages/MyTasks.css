@@ -1,8 +1,9 @@
 .my-tasks-page {
   width: 100%;
-  max-width: 1036px;
-  margin: 0 auto;
-  padding: 8px 16px 32px;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px var(--dashboard-page-padding-x, 16px) 32px;
   color: #35424d;
   font-family: 'Source Sans Pro', sans-serif;
 }

@@ -631,17 +631,17 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
                   }}
                   aria-label={`View issue ${issue.journalAcronym} ${issue.volume}/${issue.issue}`}
                 >
-                  <td>{issue.journalAcronym}</td>
-                  <td>{issue.volume}/{issue.issue}</td>
-                  <td>{ISSUE_TYPE_LABEL[issue.issueType]}</td>
-                  <td>{issue.assignedArticleIds.length}</td>
-                  <td>
+                  <td data-label="Journal">{issue.journalAcronym}</td>
+                  <td data-label="Volume/Issue">{issue.volume}/{issue.issue}</td>
+                  <td data-label="Issue Type">{ISSUE_TYPE_LABEL[issue.issueType]}</td>
+                  <td data-label="Assigned Articles">{issue.assignedArticleIds.length}</td>
+                  <td data-label="Milestone">
                     <MilestoneBadge
                       milestone={issue.milestone}
                       variant={activeTab === 'history' ? 'completed' : 'in-progress'}
                     />
                   </td>
-                  <td>
+                  <td data-label={activeTab === 'history' ? 'Last Processed' : 'Estimated Publication'}>
                     {activeTab === 'history'
                       ? formatEstimatedPublication(getLastProcessedAt(issue))
                       : formatEstimatedPublication(issue.publicationDate)}
@@ -649,6 +649,7 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
                   {activeTab === 'in-progress' && (
                     <td
                       className="issues-data-table-action-cell"
+                      data-label="Actions"
                       onClick={event => event.stopPropagation()}
                     >
                       <RowActionsMenu

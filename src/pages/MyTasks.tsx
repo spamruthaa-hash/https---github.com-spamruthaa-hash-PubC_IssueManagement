@@ -441,7 +441,7 @@ const MyTasks = ({ onLogout }: MyTasksProps) => {
       <div className="dashboard-layout">
         <Sidebar isCollapsed={sidebarCollapsed} />
 
-        <main className="dashboard-main">
+        <main className={`dashboard-main${sidebarCollapsed ? ' dashboard-main--sidebar-collapsed' : ''}`}>
           <div className="my-tasks-page">
             <header className="my-tasks-header">
               <h1>

@@ -1,8 +1,9 @@
 .issue-details-page {
   width: 100%;
-  max-width: 1036px;
-  margin: 0 auto;
-  padding: 8px 16px 32px;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px var(--dashboard-page-padding-x, 16px) 32px;
   color: #35424d;
   font-family: 'Source Sans Pro', sans-serif;
   animation: issue-details-page-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -509,7 +510,7 @@
 
 @media (max-width: 640px) {
   .issue-details-page {
-    padding: 12px 16px 24px;
+    padding: 12px var(--dashboard-page-padding-x, 16px) 24px;
   }
 
   .issue-details-topbar,

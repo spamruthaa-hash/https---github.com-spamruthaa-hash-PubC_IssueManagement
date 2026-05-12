@@ -641,7 +641,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
       <div className="dashboard-layout">
         <Sidebar isCollapsed={sidebarCollapsed} />
 
-        <main className="dashboard-main">
+        <main className={`dashboard-main${sidebarCollapsed ? ' dashboard-main--sidebar-collapsed' : ''}`}>
           <div className="issue-details-page">
             {!issue ? (
               <div className="issue-details-empty">

@@ -11,9 +11,15 @@
 }
 
 .dashboard-main {
+  --dashboard-page-padding-x: 16px;
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background: #FFFFFF;
+}
+
+.dashboard-main--sidebar-collapsed {
+  --dashboard-page-padding-x: 32px;
 }
 
 .dashboard-content {
