@@ -32,6 +32,21 @@ export const isColumnContainingDate = (column: TimelineColumn, date: Date): bool
   return time >= column.start.getTime() && time <= column.end.getTime();
 };
 
+/**
+ * Progress of `date` through a column's time span (0 = column start, 1 = column end).
+ * Returns null when the date is outside the column.
+ */
+export const getDatePositionInColumn = (column: TimelineColumn, date: Date): number | null => {
+  if (!isColumnContainingDate(column, date)) return null;
+
+  const start = column.start.getTime();
+  const end = column.end.getTime();
+  const span = end - start;
+  if (span <= 0) return 0;
+
+  return (date.getTime() - start) / span;
+};
+
 /** @deprecated Use isColumnContainingDate */
 export const isWeekContainingDate = isColumnContainingDate;
 

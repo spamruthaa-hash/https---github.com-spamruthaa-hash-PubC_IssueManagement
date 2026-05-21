@@ -23,11 +23,11 @@ interface ScheduleMilestoneDetailModalProps {
   onProgressAction?: (kind: ScheduleMilestoneProgressActionKind) => void;
 }
 
-const POP_GAP = 12;
-const POP_WIDTH = 600;
+const POP_GAP = 16;
+const POP_WIDTH = 560;
 const VIEWPORT_PADDING = 16;
-const POP_INITIAL_HEIGHT = 320;
-const ARROW_SIZE = 8;
+const POP_INITIAL_HEIGHT = 300;
+const ARROW_INSET = 20;
 
 export type PopoverPlacement = 'bottom' | 'right' | 'top' | 'left';
 
@@ -85,18 +85,21 @@ const ProgressRow = ({
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(value, max));
 
+const centerAlongAxis = (
+  anchorStart: number,
+  anchorSize: number,
+  popSize: number,
+  pad: number,
+  maxPos: number,
+): number =>
+  clamp(anchorStart + anchorSize / 2 - popSize / 2, pad, maxPos);
+
 const alignPopoverLeft = (
   anchor: DOMRect,
   popWidth: number,
   pad: number,
   maxLeft: number,
-): number => {
-  let left = anchor.left;
-  if (popWidth > anchor.width) {
-    left = anchor.left + anchor.width / 2 - popWidth / 2;
-  }
-  return clamp(left, pad, maxLeft);
-};
+): number => centerAlongAxis(anchor.left, anchor.width, popWidth, pad, maxLeft);
 
 const overlapArea = (
   aLeft: number,
@@ -147,8 +150,8 @@ const scorePopoverCandidate = (
     anchor.top,
     anchor.right,
     anchor.bottom,
-  ) * 0.35;
-  score += priority * 2500;
+  ) * 1.25;
+  score += priority * 3000;
 
   return score;
 };
@@ -164,6 +167,9 @@ export const computePopoverPosition = (
   const pad = VIEWPORT_PADDING;
   const maxLeft = vw - popWidth - pad;
   const maxTop = vh - popHeight - pad;
+  const anchorCenterX = rect.left + rect.width / 2;
+  const anchorCenterY = rect.top + rect.height / 2;
+  const preferRight = anchorCenterX < vw * 0.52;
 
   type Candidate = {
     placement: PopoverPlacement;
@@ -172,30 +178,33 @@ export const computePopoverPosition = (
     top: number;
   };
 
+  const sideTop = centerAlongAxis(rect.top, rect.height, popHeight, pad, maxTop);
+  const rightCandidate: Candidate = {
+    placement: 'right',
+    priority: 5,
+    left: rect.right + POP_GAP,
+    top: sideTop,
+  };
+  const leftCandidate: Candidate = {
+    placement: 'left',
+    priority: 4,
+    left: rect.left - popWidth - POP_GAP,
+    top: sideTop,
+  };
+
   const candidates: Candidate[] = [
+    ...(preferRight ? [rightCandidate, leftCandidate] : [leftCandidate, rightCandidate]),
     {
       placement: 'bottom',
-      priority: 4,
+      priority: 3,
       left: alignPopoverLeft(rect, popWidth, pad, maxLeft),
       top: rect.bottom + POP_GAP,
-    },
-    {
-      placement: 'right',
-      priority: 3,
-      left: rect.right + POP_GAP,
-      top: clamp(rect.top, pad, maxTop),
     },
     {
       placement: 'top',
       priority: 2,
       left: alignPopoverLeft(rect, popWidth, pad, maxLeft),
       top: rect.top - popHeight - POP_GAP,
-    },
-    {
-      placement: 'left',
-      priority: 1,
-      left: rect.left - popWidth - POP_GAP,
-      top: clamp(rect.top, pad, maxTop),
     },
   ];
 
@@ -221,12 +230,10 @@ export const computePopoverPosition = (
   const left = clamp(chosen.left, pad, maxLeft);
   const top = clamp(chosen.top, pad, maxTop);
 
-  const anchorCenterX = rect.left + rect.width / 2;
-  const anchorCenterY = rect.top + rect.height / 2;
   const arrowOffset =
     chosen.placement === 'bottom' || chosen.placement === 'top'
-      ? clamp(anchorCenterX - left, ARROW_SIZE + 12, popWidth - ARROW_SIZE - 12)
-      : clamp(anchorCenterY - top, ARROW_SIZE + 12, popHeight - ARROW_SIZE - 12);
+      ? clamp(anchorCenterX - left, ARROW_INSET, popWidth - ARROW_INSET)
+      : clamp(anchorCenterY - top, ARROW_INSET, popHeight - ARROW_INSET);
 
   return {
     top,

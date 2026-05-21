@@ -140,6 +140,30 @@
   background: #ffffff;
 }
 
+.issue-schedule-gantt-inner {
+  position: relative;
+  width: fit-content;
+  min-width: 100%;
+}
+
+/* Vertical "today" overlay — body rows only, below the header (no grid participation). */
+.issue-schedule-now-indicator {
+  position: absolute;
+  z-index: 6;
+  width: 0;
+  pointer-events: none;
+}
+
+.issue-schedule-now-indicator__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #ff1818;
+}
+
 .issue-schedule-gantt-grid {
   display: grid;
   min-width: 1040px;

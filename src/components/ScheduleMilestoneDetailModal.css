@@ -21,15 +21,17 @@
   --schedule-milestone-pop-arrow: 24px;
   position: fixed;
   z-index: 1100;
-  width: min(600px, calc(100vw - 32px));
-  max-height: min(80vh, 520px);
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(72vh, 480px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  border: 1px solid #e3e4e5;
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(39, 40, 51, 0.4);
+  border: 1px solid #d5d8db;
+  border-radius: 6px;
+  box-shadow:
+    0 8px 24px rgba(39, 40, 51, 0.16),
+    0 2px 8px rgba(39, 40, 51, 0.08);
   animation: schedule-milestone-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -38,40 +40,45 @@
   position: absolute;
   width: 0;
   height: 0;
-  border: 8px solid transparent;
+  border-style: solid;
+  border-color: transparent;
   pointer-events: none;
 }
 
 .schedule-milestone-pop--bottom::before {
-  top: -15px;
+  top: -16px;
   left: var(--schedule-milestone-pop-arrow);
   transform: translateX(-50%);
+  border-width: 0 10px 10px;
   border-bottom-color: #ffffff;
-  filter: drop-shadow(0 -1px 0 #e3e4e5);
+  filter: drop-shadow(0 -1px 0 #d5d8db);
 }
 
 .schedule-milestone-pop--top::before {
-  bottom: -15px;
+  bottom: -16px;
   left: var(--schedule-milestone-pop-arrow);
   transform: translateX(-50%);
+  border-width: 10px 10px 0;
   border-top-color: #ffffff;
-  filter: drop-shadow(0 1px 0 #e3e4e5);
+  filter: drop-shadow(0 1px 0 #d5d8db);
 }
 
 .schedule-milestone-pop--right::before {
-  left: -15px;
+  left: -16px;
   top: var(--schedule-milestone-pop-arrow);
   transform: translateY(-50%);
+  border-width: 10px 10px 10px 0;
   border-right-color: #ffffff;
-  filter: drop-shadow(-1px 0 0 #e3e4e5);
+  filter: drop-shadow(-1px 0 0 #d5d8db);
 }
 
 .schedule-milestone-pop--left::before {
-  right: -15px;
+  right: -16px;
   top: var(--schedule-milestone-pop-arrow);
   transform: translateY(-50%);
+  border-width: 10px 0 10px 10px;
   border-left-color: #ffffff;
-  filter: drop-shadow(1px 0 0 #e3e4e5);
+  filter: drop-shadow(1px 0 0 #d5d8db);
 }
 
 @keyframes schedule-milestone-pop-in {

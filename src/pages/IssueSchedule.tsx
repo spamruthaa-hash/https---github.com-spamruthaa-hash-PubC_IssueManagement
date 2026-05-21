@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -40,6 +40,7 @@ import {
   formatMilestoneRange,
   formatTimelineRangeLabel,
   getTimelineRangeBounds,
+  getDatePositionInColumn,
   isColumnContainingDate,
   milestoneOverlapsTimelineRange,
   MONTH_COLUMN_MIN_PX,
@@ -95,6 +96,20 @@ const generateToastId = (): string => {
 };
 
 const CURRENT_USER_NAME = 'John Doe';
+
+const getOffsetWithinAncestor = (element: HTMLElement, ancestor: HTMLElement) => {
+  let left = 0;
+  let top = 0;
+  let current: HTMLElement | null = element;
+
+  while (current && current !== ancestor) {
+    left += current.offsetLeft;
+    top += current.offsetTop;
+    current = current.offsetParent as HTMLElement | null;
+  }
+
+  return { left, top };
+};
 
 type ScheduleProgressModalKind = 'article-lineup' | 'folio-creation' | 'folio-review';
 
@@ -184,6 +199,13 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
   const milestoneTooltipShowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const milestoneTooltipHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ganttInnerRef = useRef<HTMLDivElement>(null);
+  const ganttGridRef = useRef<HTMLDivElement>(null);
+  const [nowMarkerLayout, setNowMarkerLayout] = useState<{
+    left: number;
+    top: number;
+    height: number;
+  } | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [progressModalKind, setProgressModalKind] = useState<ScheduleProgressModalKind | null>(null);
   const [progressModalIssueId, setProgressModalIssueId] = useState<string | null>(null);
@@ -219,6 +241,41 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
     [today],
   );
 
+  const currentTimeIndicator = useMemo(() => {
+    const columnIndex = timelineColumns.findIndex(column => isColumnContainingDate(column, today));
+    if (columnIndex < 0) return null;
+
+    const column = timelineColumns[columnIndex];
+    const position = getDatePositionInColumn(column, today);
+    if (position === null) return null;
+
+    return { columnIndex, position };
+  }, [timelineColumns, today]);
+
+  const updateNowMarkerLayout = useCallback(() => {
+    if (!currentTimeIndicator || !ganttInnerRef.current || !ganttGridRef.current) {
+      setNowMarkerLayout(null);
+      return;
+    }
+
+    const inner = ganttInnerRef.current;
+    const timelineHeaders = ganttGridRef.current.querySelectorAll<HTMLElement>(
+      '.issue-schedule-gantt-header.issue-schedule-week-col, .issue-schedule-gantt-header.issue-schedule-month-col',
+    );
+    const header = timelineHeaders[currentTimeIndicator.columnIndex];
+    if (!header) {
+      setNowMarkerLayout(null);
+      return;
+    }
+
+    const { left: headerLeft, top: headerTop } = getOffsetWithinAncestor(header, inner);
+    const left = headerLeft + header.offsetWidth * currentTimeIndicator.position;
+    const bodyTop = headerTop + header.offsetHeight;
+    const bodyHeight = Math.max(inner.offsetHeight - bodyTop, 0);
+
+    setNowMarkerLayout({ left, top: bodyTop, height: bodyHeight });
+  }, [currentTimeIndicator]);
+
   const displayEntries = useMemo(
     () => allEntries.map(entry => resolveScheduleEntryDisplay(entry, issues)),
     [allEntries, issues],
@@ -247,6 +304,36 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
         return sortBy === 'publication-desc' ? -comparison : comparison;
       });
   }, [displayEntries, journalFilter, issueTypeFilter, timelineBounds, sortBy]);
+
+  useLayoutEffect(() => {
+    updateNowMarkerLayout();
+  }, [
+    updateNowMarkerLayout,
+    filteredEntries.length,
+    timelineColumns,
+    anchorMonth,
+    timelineRange,
+    useMonthColumns,
+  ]);
+
+  useLayoutEffect(() => {
+    const inner = ganttInnerRef.current;
+    const gantt = inner?.closest('.issue-schedule-gantt');
+    if (!inner || !gantt) return undefined;
+
+    const observer = new ResizeObserver(() => updateNowMarkerLayout());
+    observer.observe(inner);
+    observer.observe(gantt);
+
+    gantt.addEventListener('scroll', updateNowMarkerLayout);
+    window.addEventListener('resize', updateNowMarkerLayout);
+
+    return () => {
+      observer.disconnect();
+      gantt.removeEventListener('scroll', updateNowMarkerLayout);
+      window.removeEventListener('resize', updateNowMarkerLayout);
+    };
+  }, [updateNowMarkerLayout]);
 
   const sortDisplayLabel =
     SCHEDULE_SORT_OPTIONS.find(option => option.id === sortBy)?.label
@@ -746,7 +833,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
 
 
-            {filteredEntries.length === 0 ? (
+            {filteredEntries.length === 0 && !currentTimeIndicator ? (
 
               <p className="issue-schedule-empty">
 
@@ -759,6 +846,12 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
               <div className="issue-schedule-gantt">
 
                 <div
+                  ref={ganttInnerRef}
+                  className="issue-schedule-gantt-inner"
+                  style={{ minWidth: ganttMinWidth }}
+                >
+                <div
+                  ref={ganttGridRef}
                   className={[
                     'issue-schedule-gantt-grid',
                     useMonthColumns ? 'issue-schedule-gantt-grid--months' : '',
@@ -941,10 +1034,13 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
                                     const slot = e.currentTarget.closest(
                                       '.issue-schedule-milestone-slot',
                                     ) as HTMLElement | null;
+                                    const bar = (slot ?? e.currentTarget).querySelector(
+                                      'button.schedule-milestone-bar',
+                                    ) as HTMLElement | null;
                                     openMilestonePopover(
                                       entry,
                                       item.milestoneIndex,
-                                      slot ?? e.currentTarget,
+                                      bar ?? slot ?? e.currentTarget,
                                     );
                                   }}
 
@@ -974,6 +1070,23 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
                     );
 
                   })}
+
+                </div>
+
+                {currentTimeIndicator && nowMarkerLayout && (
+                  <div
+                    className="issue-schedule-now-indicator"
+                    role="presentation"
+                    aria-hidden
+                    style={{
+                      left: nowMarkerLayout.left,
+                      top: nowMarkerLayout.top,
+                      height: nowMarkerLayout.height,
+                    }}
+                  >
+                    <span className="issue-schedule-now-indicator__line" />
+                  </div>
+                )}
 
                 </div>
 
