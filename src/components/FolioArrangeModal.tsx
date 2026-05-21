@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ARTICLES_BY_JOURNAL, PAGE_BUDGET, type Article } from '../data/articles';
 import type { FolioArrangement, FolioArrangementItem, FolioFileAttachment, FolioMatterType, Issue } from '../types/issue';
 import ArticleLineupModal from './ArticleLineupModal';
+import { buildDefaultFolioArrangementItems } from '../utils/folioArrangementDefaults';
+import {
+  getFolioItemPageCount,
+  recalculateFolioPageRanges,
+} from '../utils/folioPageRanges';
+import {
+  pruneDismissedGapSuggestions,
+  type FolioPageGapSuggestion,
+} from '../utils/folioPageGapSuggestions';
 import FolioArrangeTable, { FOLIO_MATTER_LABELS, requiresFolioFile } from './FolioArrangeTable';
 import './FolioArrangeModal.css';
 
@@ -18,20 +27,23 @@ interface FolioArrangeModalProps {
   onSave: (issueId: string, arrangement: FolioArrangement) => void;
 }
 
-const DEFAULT_REQUIRED_MATTER: FolioMatterType[] = ['coversheet', 'masthead', 'table-of-contents'];
 const ADD_ITEM_MATTER_TYPES = Object.keys(FOLIO_MATTER_LABELS) as FolioMatterType[];
+
+/** Categories offered when accepting an odd-page gap suggestion (Figma). */
+const GAP_SUGGESTION_CATEGORIES: FolioMatterType[] = ['blank', 'advertisement'];
+
+type AddItemModalTarget = {
+  insertAfterIndex?: number;
+  insertBeforeIndex?: number;
+  gapSuggestionId?: string;
+  allowedCategories?: FolioMatterType[];
+};
 const SINGLE_INSTANCE_MATTER_TYPES: FolioMatterType[] = [
   'masthead',
   'table-of-contents',
   'call-for-papers',
   'upcoming-issue',
 ];
-
-const matterItem = (matterType: FolioMatterType): FolioArrangementItem => ({
-  id: `matter-${matterType}`,
-  kind: 'matter',
-  matterType,
-});
 
 const addableMatterItem = (matterType: FolioMatterType, file?: FolioFileAttachment): FolioArrangementItem =>
   matterType === 'blank'
@@ -98,52 +110,19 @@ const removeTemporaryFileUrls = (items: FolioArrangementItem[]): FolioArrangemen
     return { ...item, file };
   });
 
-const buildDefaultItems = (issue: Issue, articlesById: Record<string, Article>): FolioArrangementItem[] => {
+const buildDefaultItems = (issue: Issue): FolioArrangementItem[] => {
   if (issue.folioArrangement?.items.length) {
     return issue.folioArrangement.items;
   }
 
-  const articleItems = issue.assignedArticleIds
-    .filter(articleId => articlesById[articleId])
-    .map(articleItem);
-
-  return [
-    ...DEFAULT_REQUIRED_MATTER.map(matterItem),
-    ...articleItems,
-  ];
-};
-
-const recalculateArticleRanges = (
-  items: FolioArrangementItem[],
-  articlesById: Record<string, Article>,
-  anchor?: { itemId: string; startPage: number },
-): FolioArrangementItem[] => {
-  let hasReachedAnchor = !anchor;
-  let currentStart: number | undefined;
-
-  return items.map(item => {
-    if (item.kind !== 'article') return item;
-    const article = articlesById[item.articleId];
-    const pageCount = article?.pages ?? Math.max(1, item.endPage - item.startPage + 1);
-
-    if (!hasReachedAnchor) {
-      if (item.id !== anchor?.itemId) return item;
-      hasReachedAnchor = true;
-      currentStart = Math.max(1, anchor.startPage);
-    }
-
-    const startPage = currentStart ?? Math.max(1, item.startPage || 1);
-    const endPage = startPage + pageCount - 1;
-    currentStart = endPage + 1;
-    return { ...item, startPage, endPage };
-  });
+  return buildDefaultFolioArrangementItems(issue);
 };
 
 const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModalProps) => {
   const [items, setItems] = useState<FolioArrangementItem[]>([]);
   const [validationMessage, setValidationMessage] = useState('');
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [addItemModalTarget, setAddItemModalTarget] = useState<{ insertAfterIndex?: number } | null>(null);
+  const [addItemModalTarget, setAddItemModalTarget] = useState<AddItemModalTarget | null>(null);
   const [addArticleModalTarget, setAddArticleModalTarget] = useState<{ insertAfterIndex?: number } | null>(null);
   const [selectedAddItemType, setSelectedAddItemType] = useState<FolioMatterType | ''>('');
   const [selectedAddItemFile, setSelectedAddItemFile] = useState<FolioFileAttachment | null>(null);
@@ -151,6 +130,9 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
   const [isReturningFromAddItem, setIsReturningFromAddItem] = useState(false);
   const [isReturningFromAddArticle, setIsReturningFromAddArticle] = useState(false);
   const [isClosingAddArticle, setIsClosingAddArticle] = useState(false);
+  const [dismissedGapSuggestionIds, setDismissedGapSuggestionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const addMenuRef = useRef<HTMLDivElement>(null);
   const addItemFileInputRef = useRef<HTMLInputElement>(null);
   const addArticleCloseTimeoutRef = useRef<number | null>(null);
@@ -168,25 +150,26 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
     [items],
   );
   const articleCount = items.filter(item => item.kind === 'article').length;
-  const pagesAdded = items.reduce((sum, item) => {
-    if (item.kind === 'matter') return sum + (item.file?.pageCount ?? 0);
-    return sum + (articlesById[item.articleId]?.pages ?? Math.max(1, item.endPage - item.startPage + 1));
-  }, 0);
+  const pagesAdded = items.reduce(
+    (sum, item) => sum + getFolioItemPageCount(item, articlesById),
+    0,
+  );
   const missingRequiredLabels = getMissingRequiredUploadLabels(items);
   const canSubmit = missingRequiredLabels.length === 0;
-  const availableAddItemTypes = useMemo(
-    () => ADD_ITEM_MATTER_TYPES.filter(type => (
-      !SINGLE_INSTANCE_MATTER_TYPES.includes(type)
-        || !items.some(item => item.kind === 'matter' && item.matterType === type)
-    )),
-    [items],
-  );
+  const availableAddItemTypes = useMemo(() => {
+    const pool = addItemModalTarget?.allowedCategories ?? ADD_ITEM_MATTER_TYPES;
+    return pool.filter(type => (
+      addItemModalTarget?.allowedCategories
+      || !SINGLE_INSTANCE_MATTER_TYPES.includes(type)
+      || !items.some(item => item.kind === 'matter' && item.matterType === type)
+    ));
+  }, [addItemModalTarget?.allowedCategories, items]);
   const selectedAddItemNeedsFile = selectedAddItemType ? requiresFolioFile(selectedAddItemType) : false;
   const canAddSelectedItem = Boolean(selectedAddItemType) && (!selectedAddItemNeedsFile || Boolean(selectedAddItemFile));
 
   useEffect(() => {
     if (!isOpen || !issue) return;
-    setItems(recalculateArticleRanges(buildDefaultItems(issue, articlesById), articlesById));
+    setItems(recalculateFolioPageRanges(buildDefaultItems(issue), articlesById));
     setValidationMessage('');
     setIsAddMenuOpen(false);
     setAddItemModalTarget(null);
@@ -203,7 +186,16 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
     setIsReturningFromAddItem(false);
     setIsReturningFromAddArticle(false);
     setIsClosingAddArticle(false);
+    setDismissedGapSuggestionIds(new Set());
   }, [articlesById, isOpen, issue]);
+
+  useEffect(() => {
+    setDismissedGapSuggestionIds(prev => {
+      const next = new Set(prev);
+      pruneDismissedGapSuggestions(items, articlesById, next);
+      return next.size === prev.size && [...next].every(id => prev.has(id)) ? prev : next;
+    });
+  }, [articlesById, items]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -271,6 +263,30 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
     return () => window.clearTimeout(timeoutId);
   }, [isReturningFromAddArticle, isReturningFromAddItem]);
 
+  const handleAcceptGapSuggestion = useCallback((suggestion: FolioPageGapSuggestion) => {
+    setIsReturningFromAddItem(false);
+    setAddItemModalTarget({
+      insertBeforeIndex: suggestion.insertBeforeIndex,
+      gapSuggestionId: suggestion.id,
+      allowedCategories: GAP_SUGGESTION_CATEGORIES,
+    });
+    setSelectedAddItemType('');
+    setSelectedAddItemFile(current => {
+      if (current?.objectUrl) {
+        URL.revokeObjectURL(current.objectUrl);
+        fileObjectUrlsRef.current.delete(current.objectUrl);
+      }
+      return null;
+    });
+    setIsAddItemCategoryOpen(false);
+    setIsAddMenuOpen(false);
+    setValidationMessage('');
+  }, []);
+
+  const handleRejectGapSuggestion = useCallback((suggestion: FolioPageGapSuggestion) => {
+    setDismissedGapSuggestionIds(prev => new Set(prev).add(suggestion.id));
+  }, []);
+
   if (!isOpen || !issue) return null;
 
   const handleMoveItem = (fromIndex: number, toIndex: number) => {
@@ -278,12 +294,12 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
       const next = [...prev];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
-      return recalculateArticleRanges(next, articlesById);
+      return recalculateFolioPageRanges(next, articlesById);
     });
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setItems(prev => recalculateArticleRanges(prev.filter(item => item.id !== itemId), articlesById));
+    setItems(prev => recalculateFolioPageRanges(prev.filter(item => item.id !== itemId), articlesById));
   };
 
   const revokeFolioFileAttachment = (file?: FolioFileAttachment | null) => {
@@ -330,30 +346,36 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
     const attachment = await buildFolioFileAttachment(file);
     if (!attachment) return;
 
-    setItems(prev => prev.map(item => (
-      item.kind === 'matter' && item.id === itemId
-        ? (() => {
-            revokeFolioFileAttachment(item.file);
-            return { ...item, file: attachment };
-          })()
-        : item
-    )));
+    setItems(prev => recalculateFolioPageRanges(
+      prev.map(item => (
+        item.kind === 'matter' && item.id === itemId
+          ? (() => {
+              revokeFolioFileAttachment(item.file);
+              return { ...item, file: attachment };
+            })()
+          : item
+      )),
+      articlesById,
+    ));
   };
 
   const handleRemoveFile = (itemId: string) => {
     setValidationMessage('');
-    setItems(prev => prev.map(item => (
-      item.kind === 'matter' && item.id === itemId
-        ? (() => {
-            if (item.file?.objectUrl) {
-              URL.revokeObjectURL(item.file.objectUrl);
-              fileObjectUrlsRef.current.delete(item.file.objectUrl);
-            }
+    setItems(prev => recalculateFolioPageRanges(
+      prev.map(item => (
+        item.kind === 'matter' && item.id === itemId
+          ? (() => {
+              if (item.file?.objectUrl) {
+                URL.revokeObjectURL(item.file.objectUrl);
+                fileObjectUrlsRef.current.delete(item.file.objectUrl);
+              }
 
-            return { id: item.id, kind: item.kind, matterType: item.matterType };
-          })()
-        : item
-    )));
+              return { id: item.id, kind: item.kind, matterType: item.matterType };
+            })()
+          : item
+      )),
+      articlesById,
+    ));
   };
 
   const handleOpenAddItemModal = (insertAfterIndex?: number) => {
@@ -415,23 +437,28 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
   };
 
   const handleConfirmAddItem = () => {
-    if (!selectedAddItemType) return;
+    if (!selectedAddItemType || !addItemModalTarget) return;
     if (selectedAddItemNeedsFile && !selectedAddItemFile) {
       setValidationMessage(`Upload a file for ${FOLIO_MATTER_LABELS[selectedAddItemType].label}.`);
       return;
     }
 
+    const gapSuggestionId = addItemModalTarget.gapSuggestionId;
     setValidationMessage('');
     setItems(prev => {
       const next = [...prev];
-      const insertAfterIndex = addItemModalTarget?.insertAfterIndex;
-      if (insertAfterIndex === undefined) {
-        next.push(addableMatterItem(selectedAddItemType, selectedAddItemFile ?? undefined));
-      } else {
-        next.splice(insertAfterIndex + 1, 0, addableMatterItem(selectedAddItemType, selectedAddItemFile ?? undefined));
-      }
-      return recalculateArticleRanges(next, articlesById);
+      const newItem = addableMatterItem(selectedAddItemType, selectedAddItemFile ?? undefined);
+      const insertAt = addItemModalTarget.insertBeforeIndex ?? (
+        addItemModalTarget.insertAfterIndex === undefined
+          ? next.length
+          : addItemModalTarget.insertAfterIndex + 1
+      );
+      next.splice(insertAt, 0, newItem);
+      return recalculateFolioPageRanges(next, articlesById);
     });
+    if (gapSuggestionId) {
+      setDismissedGapSuggestionIds(prev => new Set(prev).add(gapSuggestionId));
+    }
     handleCloseAddItemModal({ keepSelectedFile: true });
   };
 
@@ -488,7 +515,7 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
         retainedItems.splice(insertAt, 0, ...newArticleItems);
       }
 
-      return recalculateArticleRanges(retainedItems, articlesById);
+      return recalculateFolioPageRanges(retainedItems, articlesById);
     });
     setValidationMessage('');
   };
@@ -563,12 +590,15 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
               <FolioArrangeTable
                 items={items}
                 articlesById={articlesById}
+                dismissedGapSuggestionIds={dismissedGapSuggestionIds}
                 onMoveItem={handleMoveItem}
                 onRemoveItem={handleRemoveItem}
                 onFileChange={handleFileChange}
                 onRemoveFile={handleRemoveFile}
                 onOpenAddItemModal={handleOpenAddItemModal}
                 onAddArticleAfter={handleOpenAddArticleModal}
+                onAcceptGapSuggestion={handleAcceptGapSuggestion}
+                onRejectGapSuggestion={handleRejectGapSuggestion}
               />
             </DndProvider>
           </main>

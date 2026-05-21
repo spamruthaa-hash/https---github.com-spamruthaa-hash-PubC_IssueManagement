@@ -3,8 +3,10 @@ import { useState } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Issues from './pages/Issues';
+import IssueSchedule from './pages/IssueSchedule';
 import IssueDetails from './pages/IssueDetails';
 import MyTasks from './pages/MyTasks';
+import { clearStoredJournalSchedules } from './hooks/useJournalSchedules';
 import { clearStoredIssues } from './hooks/useIssues';
 
 function App() {
@@ -16,9 +18,10 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    // Per product requirement: created issues persist across reloads but are wiped
-    // when the user signs out so the next session starts fresh.
+    // Per product requirement: created issues and uploaded schedules persist across
+    // reloads but are wiped when the user signs out so the next session starts fresh.
     clearStoredIssues();
+    clearStoredJournalSchedules();
   };
 
   return (
@@ -63,6 +66,16 @@ function App() {
               <Navigate to="/login" replace />
             )
           } 
+        />
+        <Route
+          path="/issues/schedule"
+          element={
+            isAuthenticated ? (
+              <IssueSchedule onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
         <Route
           path="/issues/:issueId"

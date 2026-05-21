@@ -219,6 +219,12 @@
   border-bottom: none;
 }
 
+.folio-review-table-empty {
+  padding: 24px 12px;
+  color: #5d6871;
+  text-align: center;
+}
+
 .folio-review-table td:nth-child(1),
 .folio-review-table td:nth-child(2),
 .folio-review-table td:nth-child(5),

@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { Fragment, useMemo, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
 import type { Identifier } from 'dnd-core';
 import { useDrag, useDrop } from 'react-dnd';
 import type { Article } from '../data/articles';
 import type { FolioArrangementItem, FolioMatterType } from '../types/issue';
 import { formatDisplayDateTime } from '../utils/dateFormat';
+import FolioArrangeGapSuggestion from './FolioArrangeGapSuggestion';
+import { getFolioItemPageDisplay } from '../utils/folioPageRanges';
+import {
+  getFolioPageGapSuggestions,
+  type FolioPageGapSuggestion,
+} from '../utils/folioPageGapSuggestions';
 
 const FOLIO_ROW_DND_TYPE = 'folio-arrange-row';
 
@@ -62,9 +68,7 @@ interface DragRow {
   index: number;
 }
 
-interface FolioArrangeTableProps {
-  items: FolioArrangementItem[];
-  articlesById: Record<string, Article>;
+interface FolioArrangeRowHandlers {
   onMoveItem: (fromIndex: number, toIndex: number) => void;
   onRemoveItem: (itemId: string) => void;
   onFileChange: (itemId: string, file: File) => void;
@@ -73,7 +77,17 @@ interface FolioArrangeTableProps {
   onAddArticleAfter: (index: number) => void;
 }
 
-interface FolioArrangeRowProps extends FolioArrangeTableProps {
+interface FolioArrangeTableProps extends FolioArrangeRowHandlers {
+  items: FolioArrangementItem[];
+  articlesById: Record<string, Article>;
+  dismissedGapSuggestionIds: ReadonlySet<string>;
+  onAcceptGapSuggestion: (suggestion: FolioPageGapSuggestion) => void;
+  onRejectGapSuggestion: (suggestion: FolioPageGapSuggestion) => void;
+}
+
+interface FolioArrangeRowProps extends FolioArrangeRowHandlers {
+  items: FolioArrangementItem[];
+  articlesById: Record<string, Article>;
   item: FolioArrangementItem;
   index: number;
 }
@@ -151,7 +165,7 @@ const FolioArrangeRow = ({
   const matter = item.kind === 'matter' ? FOLIO_MATTER_LABELS[item.matterType] : undefined;
   const isBlankMatter = item.kind === 'matter' && item.matterType === 'blank';
   const needsFile = item.kind === 'matter' && requiresFolioFile(item.matterType);
-  const matterPageCount = item.kind === 'matter' ? item.file?.pageCount : undefined;
+  const { pages: pagesDisplay, pageRange: pageRangeDisplay } = getFolioItemPageDisplay(item, articlesById);
   const rowClassName = [
     'folio-arrange-row',
     isDragging ? 'folio-arrange-row--dragging' : '',
@@ -402,16 +416,8 @@ const FolioArrangeRow = ({
           renderFileUpload()
         )}
       </td>
-      <td>{item.kind === 'article' && article ? article.pages : isBlankMatter ? null : matterPageCount ?? '-'}</td>
-      <td>
-        {item.kind === 'article' ? (
-          <span>{item.startPage} - {item.endPage}</span>
-        ) : isBlankMatter ? (
-          null
-        ) : (
-          '-'
-        )}
-      </td>
+      <td>{pagesDisplay ?? null}</td>
+      <td>{pageRangeDisplay ?? null}</td>
       <td className="folio-arrange-actions">
         {item.kind === 'article' && (
           <button type="button" className="folio-arrange-remove" onClick={() => onRemoveItem(item.id)}>
@@ -428,26 +434,57 @@ const FolioArrangeRow = ({
   );
 };
 
-const FolioArrangeTable = (props: FolioArrangeTableProps) => (
-  <div className="folio-arrange-table-wrap">
-    <table className="folio-arrange-table">
-      <thead>
-        <tr>
-          <th>Sequence</th>
-          <th>Category</th>
-          <th>Content</th>
-          <th>Pages</th>
-          <th>Page Range</th>
-          <th aria-label="Actions" />
-        </tr>
-      </thead>
-      <tbody>
-        {props.items.map((item, index) => (
-          <FolioArrangeRow key={item.id} {...props} item={item} index={index} />
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+const FolioArrangeTable = ({
+  dismissedGapSuggestionIds,
+  onAcceptGapSuggestion,
+  onRejectGapSuggestion,
+  ...rowProps
+}: FolioArrangeTableProps) => {
+  const gapSuggestionsByIndex = useMemo(() => {
+    const map = new Map<number, FolioPageGapSuggestion>();
+    getFolioPageGapSuggestions(
+      rowProps.items,
+      rowProps.articlesById,
+      dismissedGapSuggestionIds,
+    ).forEach(suggestion => {
+      map.set(suggestion.insertBeforeIndex, suggestion);
+    });
+    return map;
+  }, [dismissedGapSuggestionIds, rowProps.articlesById, rowProps.items]);
+
+  return (
+    <div className="folio-arrange-table-wrap">
+      <table className="folio-arrange-table">
+        <thead>
+          <tr>
+            <th>Sequence</th>
+            <th>Category</th>
+            <th>Content</th>
+            <th>Pages</th>
+            <th>Page Range</th>
+            <th aria-label="Actions" />
+          </tr>
+        </thead>
+        <tbody>
+          {rowProps.items.map((item, index) => {
+            const gapSuggestion = gapSuggestionsByIndex.get(index);
+            return (
+              <Fragment key={item.id}>
+                {gapSuggestion && (
+                  <FolioArrangeGapSuggestion
+                    suggestion={gapSuggestion}
+                    onAccept={onAcceptGapSuggestion}
+                    onReject={onRejectGapSuggestion}
+                  />
+                )}
+                <FolioArrangeRow {...rowProps} item={item} index={index} />
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default FolioArrangeTable;

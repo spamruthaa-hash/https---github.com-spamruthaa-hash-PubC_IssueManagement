@@ -1,0 +1,405 @@
+.upload-schedule-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(39, 40, 51, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  backdrop-filter: blur(2px);
+  animation: upload-schedule-modal-overlay-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.upload-schedule-modal-overlay--leaving {
+  animation: upload-schedule-modal-overlay-leave 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+@keyframes upload-schedule-modal-overlay-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes upload-schedule-modal-overlay-leave {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.upload-schedule-modal-container {
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(39, 40, 51, 0.4);
+  width: 90%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: upload-schedule-modal-container-enter 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.upload-schedule-modal-overlay--leaving .upload-schedule-modal-container {
+  animation: upload-schedule-modal-container-leave 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes upload-schedule-modal-container-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes upload-schedule-modal-container-leave {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(6px) scale(0.99); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-schedule-modal-overlay,
+  .upload-schedule-modal-overlay--leaving,
+  .upload-schedule-modal-container,
+  .upload-schedule-modal-overlay--leaving .upload-schedule-modal-container {
+    animation: none;
+  }
+}
+
+.upload-schedule-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #c2c6ca;
+}
+
+.upload-schedule-modal-title {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #35424d;
+  line-height: 24px;
+}
+
+.upload-schedule-modal-close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.upload-schedule-modal-close:hover {
+  background: #f3f4f6;
+}
+
+.upload-schedule-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.upload-schedule-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.upload-schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-schedule-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+}
+
+.upload-schedule-required {
+  color: #d10b00;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.upload-schedule-journal-dropdown {
+  position: relative;
+}
+
+.upload-schedule-journal-trigger {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 8px;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+  color: #35424d;
+}
+
+.upload-schedule-journal-trigger--placeholder {
+  color: #868e94;
+}
+
+.upload-schedule-journal-trigger:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+
+.upload-schedule-journal-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(39, 40, 51, 0.12);
+  z-index: 2;
+}
+
+.upload-schedule-journal-option {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  color: #35424d;
+  cursor: pointer;
+}
+
+.upload-schedule-journal-option:hover {
+  background: #edf0fd;
+}
+
+.upload-schedule-field-error {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  color: #d10b00;
+  line-height: 16px;
+}
+
+.upload-schedule-file-input {
+  display: none;
+}
+
+.upload-schedule-dropzone {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 8px;
+  color: #35424d;
+  background: #f6f7f7;
+  border: 1px dashed #bbbfc3;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+}
+
+.upload-schedule-dropzone:hover {
+  border-color: #1c40ca;
+  background: #f8faff;
+}
+
+.upload-schedule-dropzone u {
+  text-decoration: underline;
+}
+
+.upload-schedule-dropzone-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #35424d;
+  flex-shrink: 0;
+}
+
+.upload-schedule-dropzone-icon svg {
+  display: block;
+}
+
+.upload-schedule-attachment-card {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  color: #35424d;
+  background: #fbfbfb;
+  border: 1px solid #eceeee;
+  border-radius: 4px;
+}
+
+.upload-schedule-file-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--schedule-file-tone, #9aa1a6);
+}
+
+.upload-schedule-file-icon svg {
+  display: block;
+}
+
+.upload-schedule-attachment-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.upload-schedule-attachment-copy strong,
+.upload-schedule-attachment-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-schedule-attachment-copy strong {
+  color: #35424d;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+.upload-schedule-attachment-copy span {
+  color: rgba(134, 142, 148, 0.5);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: -0.06px;
+}
+
+.upload-schedule-attachment-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.upload-schedule-attachment-actions button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #35424d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.upload-schedule-attachment-actions button:hover,
+.upload-schedule-attachment-actions button:focus-visible {
+  background: #eceeee;
+  outline: none;
+}
+
+.upload-schedule-manual-entry {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding-top: 0;
+}
+
+.upload-schedule-manual-divider {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  color: #868e94;
+  line-height: 16px;
+}
+
+.upload-schedule-manual-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c40ca;
+  line-height: 20px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.upload-schedule-manual-button:hover {
+  color: #153399;
+}
+
+.upload-schedule-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  border-top: 1px solid #c2c6ca;
+}
+
+.upload-schedule-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background: #1c40ca;
+  color: #ffffff;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.upload-schedule-submit:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.upload-schedule-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.upload-schedule-submit:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+

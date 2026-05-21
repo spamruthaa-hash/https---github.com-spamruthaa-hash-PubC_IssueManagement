@@ -1,0 +1,320 @@
+.schedule-milestone-pop__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1099;
+  background: rgba(53, 66, 77, 0.12);
+  cursor: default;
+  animation: schedule-milestone-pop-backdrop-in 0.18s ease-out both;
+}
+
+@keyframes schedule-milestone-pop-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.schedule-milestone-pop {
+  --schedule-milestone-pop-arrow: 24px;
+  position: fixed;
+  z-index: 1100;
+  width: min(600px, calc(100vw - 32px));
+  max-height: min(80vh, 520px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(39, 40, 51, 0.4);
+  animation: schedule-milestone-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.schedule-milestone-pop::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  pointer-events: none;
+}
+
+.schedule-milestone-pop--bottom::before {
+  top: -15px;
+  left: var(--schedule-milestone-pop-arrow);
+  transform: translateX(-50%);
+  border-bottom-color: #ffffff;
+  filter: drop-shadow(0 -1px 0 #e3e4e5);
+}
+
+.schedule-milestone-pop--top::before {
+  bottom: -15px;
+  left: var(--schedule-milestone-pop-arrow);
+  transform: translateX(-50%);
+  border-top-color: #ffffff;
+  filter: drop-shadow(0 1px 0 #e3e4e5);
+}
+
+.schedule-milestone-pop--right::before {
+  left: -15px;
+  top: var(--schedule-milestone-pop-arrow);
+  transform: translateY(-50%);
+  border-right-color: #ffffff;
+  filter: drop-shadow(-1px 0 0 #e3e4e5);
+}
+
+.schedule-milestone-pop--left::before {
+  right: -15px;
+  top: var(--schedule-milestone-pop-arrow);
+  transform: translateY(-50%);
+  border-left-color: #ffffff;
+  filter: drop-shadow(1px 0 0 #e3e4e5);
+}
+
+@keyframes schedule-milestone-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.schedule-milestone-pop--right {
+  animation-name: schedule-milestone-pop-in-right;
+}
+
+.schedule-milestone-pop--left {
+  animation-name: schedule-milestone-pop-in-left;
+}
+
+.schedule-milestone-pop--top {
+  animation-name: schedule-milestone-pop-in-top;
+}
+
+@keyframes schedule-milestone-pop-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes schedule-milestone-pop-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes schedule-milestone-pop-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-milestone-pop__backdrop,
+  .schedule-milestone-pop {
+    animation: none;
+  }
+}
+
+.schedule-milestone-pop__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #c2c6ca;
+}
+
+.schedule-milestone-pop__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.schedule-milestone-pop__title {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 24px;
+  color: #35424d;
+  letter-spacing: -0.5px;
+}
+
+.schedule-milestone-pop__open-issue,
+.schedule-milestone-pop__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #5d6871;
+}
+
+.schedule-milestone-pop__open-issue:hover,
+.schedule-milestone-pop__close:hover {
+  background: #f6f7f7;
+}
+
+.schedule-milestone-pop__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 12px 24px 24px;
+  overflow-y: auto;
+}
+
+.schedule-milestone-pop__section-head,
+.schedule-milestone-pop__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+}
+
+.schedule-milestone-pop__progress-head-start {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.schedule-milestone-pop__light-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #1c40ca;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.schedule-milestone-pop__light-action:hover {
+  background: #d2dbfd;
+}
+
+.schedule-milestone-pop__light-action:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}
+
+.schedule-milestone-pop__section-title {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #35424d;
+  letter-spacing: -0.5px;
+  text-transform: capitalize;
+}
+
+.schedule-milestone-pop__details-grid,
+.schedule-milestone-pop__progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  column-gap: 36px;
+  row-gap: 12px;
+  padding: 8px;
+}
+
+.schedule-milestone-pop__progress-grid--single {
+  grid-template-columns: minmax(200px, 1fr);
+}
+
+.schedule-milestone-pop__detail-row,
+.schedule-milestone-pop__progress-row,
+.schedule-milestone-pop__confirmed {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.schedule-milestone-pop__detail-label {
+  flex: 0 0 auto;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  color: #5d6871;
+}
+
+.schedule-milestone-pop__detail-label--wide {
+  min-width: 97px;
+  max-width: 135px;
+}
+
+.schedule-milestone-pop__detail-value {
+  color: #35424d;
+  word-break: break-word;
+}
+
+.schedule-milestone-pop__confirmed {
+  grid-column: 2;
+}
+
+.schedule-milestone-pop__confirmed-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: #35424d;
+}
+
+.schedule-milestone-pop__confirmed-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #35424d;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .schedule-milestone-pop__details-grid,
+  .schedule-milestone-pop__progress-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-milestone-pop__confirmed {
+    grid-column: 1;
+  }
+}

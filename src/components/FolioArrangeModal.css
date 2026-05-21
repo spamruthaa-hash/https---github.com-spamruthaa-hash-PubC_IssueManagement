@@ -773,8 +773,9 @@
   color: #d10b00;
 }
 
-.folio-arrange-content-cell {
+.folio-arrange-table td.folio-arrange-content-cell {
   min-width: 280px;
+  padding-top: 8px;
 }
 
 .folio-arrange-upload {

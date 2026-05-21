@@ -1,0 +1,336 @@
+.issue-schedule-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px 24px;
+  min-height: 100%;
+}
+
+/* Breadcrumb & title */
+.issue-schedule-breadcrumb-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e3e4e5;
+}
+
+.issue-schedule-breadcrumb {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.issue-schedule-breadcrumb-trail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #5d6871;
+}
+
+.issue-schedule-breadcrumb-trail button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.issue-schedule-breadcrumb-trail button:hover {
+  color: #1c40ca;
+}
+
+.issue-schedule-title {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #5d6871;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+}
+
+.issue-schedule-new-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 4px;
+  border: none;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1c40ca;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.issue-schedule-new-button:hover {
+  background: #edf0fd;
+}
+
+/* Toolbar */
+.issue-schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.issue-schedule-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.issue-schedule-month-label {
+  margin: 0;
+  width: fit-content;
+  text-align: center;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #5d6871;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+}
+
+.issue-schedule-icon-button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: #5d6871;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.issue-schedule-icon-button:hover {
+  background: #eceeee;
+}
+
+.issue-schedule-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* Gantt chart */
+.issue-schedule-gantt {
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.issue-schedule-gantt-grid {
+  display: grid;
+  min-width: 1040px;
+}
+
+.issue-schedule-gantt-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 12px 16px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5d6871;
+  line-height: 16px;
+  border-bottom: 1px solid #e3e4e5;
+  background: #fbfbfb;
+  white-space: nowrap;
+}
+
+.issue-schedule-issue-col {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #f6f7f7;
+  border-right: 1px solid #e3e4e5;
+}
+
+/* Corner header: sticky on vertical scroll and horizontal scroll */
+.issue-schedule-gantt-header.issue-schedule-issue-col {
+  z-index: 5;
+}
+
+.issue-schedule-week-col {
+  border-right: 1px solid #e3e4e5;
+}
+
+.issue-schedule-week-col--current {
+  color: #1c40ca;
+  background: #e8eefc;
+  box-shadow: inset 0 -2px 0 0 #1c40ca;
+}
+
+.issue-schedule-week-col:last-of-type {
+  border-right: none;
+}
+
+.issue-schedule-month-col {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  background: #fbfbfb;
+  border-right: 1px solid #e3e4e5;
+}
+
+.issue-schedule-gantt-grid--months .issue-schedule-timeline-week {
+  border-right: 1px solid #f6f7f7;
+}
+
+.issue-schedule-month-col:last-of-type {
+  border-right: none;
+}
+
+.issue-schedule-gantt-row {
+  display: contents;
+}
+
+.issue-schedule-issue-cell {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 16px;
+  min-height: 96px;
+  background: #ffffff;
+  border-right: 1px solid #f6f7f7;
+  border-bottom: 1px solid #f6f7f7;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.issue-schedule-issue-cell-inner {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.issue-schedule-issue-label {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #35424d;
+  line-height: 28px;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.issue-schedule-issue-link {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #1c40ca;
+  line-height: 28px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.issue-schedule-issue-link:hover {
+  text-decoration: underline;
+}
+
+.issue-schedule-row-menu {
+  flex-shrink: 0;
+}
+
+.issue-schedule-timeline {
+  position: relative;
+  display: grid;
+  min-height: 96px;
+  border-bottom: 1px solid #f6f7f7;
+  background: #ffffff;
+}
+
+.issue-schedule-timeline-week {
+  border-right: 1px solid #f6f7f7;
+  min-height: inherit;
+}
+
+.issue-schedule-timeline-week--current {
+  background: #f4f7fe;
+}
+
+.issue-schedule-timeline-week:last-child {
+  border-right: none;
+}
+
+.issue-schedule-milestone-slot {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.issue-schedule-milestone-slot--active {
+  z-index: 4;
+}
+
+.issue-schedule-milestone-slot > * {
+  pointer-events: auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.issue-schedule-empty {
+  padding: 48px 24px;
+  text-align: center;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  color: #868e94;
+}
+
+@media (max-width: 768px) {
+  .issue-schedule-breadcrumb-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .issue-schedule-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .issue-schedule-filters {
+    justify-content: flex-start;
+  }
+
+}

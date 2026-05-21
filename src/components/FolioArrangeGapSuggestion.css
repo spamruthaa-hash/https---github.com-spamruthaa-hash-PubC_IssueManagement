@@ -1,0 +1,130 @@
+.folio-arrange-gap-suggestion-row {
+  background: #ffffff;
+}
+
+.folio-arrange-table td.folio-arrange-gap-suggestion-seq {
+  width: 90px;
+  padding-left: 32px;
+  vertical-align: top;
+  border-bottom: 1px solid #f6f7f7;
+  background: #ffffff;
+}
+
+.folio-arrange-gap-suggestion-seq-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.folio-arrange-gap-suggestion-drag {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #868e94;
+}
+
+.folio-arrange-gap-suggestion-drag svg {
+  display: block;
+  opacity: 0.5;
+}
+
+.folio-arrange-gap-suggestion-seq-placeholder {
+  flex-shrink: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 28px;
+  color: #35424d;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.folio-arrange-gap-suggestion-cell {
+  padding: 12px 20px;
+  vertical-align: top;
+  border-bottom: 1px solid #f6f7f7;
+}
+
+.folio-arrange-gap-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  background: #e6f4ff;
+  border-left: 2px solid #0566ed;
+  border-radius: 0;
+}
+
+.folio-arrange-gap-suggestion__icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 36px;
+  background: rgba(145, 202, 255, 0.57);
+}
+
+.folio-arrange-gap-suggestion__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.folio-arrange-gap-suggestion__eyebrow {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: #0566ed;
+  text-transform: uppercase;
+}
+
+.folio-arrange-gap-suggestion__message {
+  margin: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: #5d6871;
+}
+
+.folio-arrange-gap-suggestion__message strong {
+  font-weight: 600;
+  color: #35424d;
+}
+
+.folio-arrange-gap-suggestion__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.folio-arrange-gap-suggestion__action {
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #1c40ca;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.folio-arrange-gap-suggestion__action:hover {
+  background: #d2dbfd;
+}
+
+.folio-arrange-gap-suggestion__action:focus-visible {
+  outline: 2px solid #1c40ca;
+  outline-offset: 2px;
+}

@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { ARTICLES_BY_JOURNAL, type Article } from '../data/articles';
-import type { FolioArrangementItem, FolioFileAttachment, FolioMatterType, Issue } from '../types/issue';
+import type { FolioArrangementItem, FolioFileAttachment, Issue } from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import { FOLIO_MATTER_LABELS } from './FolioArrangeTable';
+import { getFolioArrangementItemsForDisplay } from '../utils/folioArrangementDefaults';
+import {
+  getFolioItemPageDisplay,
+  recalculateFolioPageRanges,
+} from '../utils/folioPageRanges';
 import './FolioReviewModal.css';
 
 interface FolioReviewModalProps {
@@ -29,21 +34,11 @@ interface ReviewRow {
   categoryType: string;
   article?: Article;
   file: ReviewFile;
-  pages: number;
-  pageRange: string;
+  pages: number | null;
+  pageRange: string | null;
 }
 
 const TNQ_USER_NAME = 'TNQ';
-
-const DEFAULT_MATTER_PAGE_COUNTS: Record<FolioMatterType, number> = {
-  coversheet: 1,
-  masthead: 1,
-  'table-of-contents': 1,
-  'call-for-papers': 1,
-  advertisement: 1,
-  'upcoming-issue': 1,
-  blank: 1,
-};
 
 const ISSUE_TYPE_LABEL: Record<Issue['issueType'], string> = {
   regular: 'Regular',
@@ -97,17 +92,15 @@ const buildReviewRows = (issue: Issue): ReviewRow[] => {
     acc[article.id] = article;
     return acc;
   }, {});
-  let nextPage = 1;
+  const rangedItems = recalculateFolioPageRanges(
+    getFolioArrangementItemsForDisplay(issue),
+    articlesById,
+  );
 
-  return (issue.folioArrangement?.items ?? []).map((item, index) => {
+  return rangedItems.map((item, index) => {
     const article = item.kind === 'article' ? articlesById[item.articleId] : undefined;
     const matter = item.kind === 'matter' ? FOLIO_MATTER_LABELS[item.matterType] : undefined;
-    const pages = item.kind === 'article'
-      ? article?.pages ?? Math.max(1, item.endPage - item.startPage + 1)
-      : item.file?.pageCount ?? DEFAULT_MATTER_PAGE_COUNTS[item.matterType];
-    const startPage = nextPage;
-    const endPage = startPage + pages - 1;
-    nextPage = endPage + 1;
+    const { pages, pageRange } = getFolioItemPageDisplay(item, articlesById);
 
     return {
       id: item.id,
@@ -118,7 +111,7 @@ const buildReviewRows = (issue: Issue): ReviewRow[] => {
       article,
       file: buildReviewFile(issue, item, article, item.kind === 'matter' ? item.file : undefined),
       pages,
-      pageRange: `${startPage}-${endPage}`,
+      pageRange,
     };
   });
 };
@@ -238,7 +231,7 @@ const FolioReviewModal = ({ isOpen, issue, onClose, onApprove, onCorrectionSubmi
   if (!isOpen || !issue) return null;
 
   const rows = buildReviewRows(issue);
-  const totalPages = rows.reduce((sum, row) => sum + row.pages, 0);
+  const totalPages = rows.reduce((sum, row) => sum + (row.pages ?? 0), 0);
   const outputFileSize = `${Math.max(1, Math.ceil(totalPages / 8))} MB`;
   const outputTimestamp = issue.folioPreparationConfirmedAt ?? issue.folioArrangementConfirmedAt ?? issue.createdAt;
   const handleCorrectionFile = (file?: File | null) => {
@@ -439,6 +432,13 @@ const FolioReviewModal = ({ isOpen, issue, onClose, onApprove, onCorrectionSubmi
                   </tr>
                 </thead>
                 <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="folio-review-table-empty">
+                        No folio items to display. Complete folio creation to build the issue sequence.
+                      </td>
+                    </tr>
+                  ) : null}
                   {rows.map(row => (
                     <tr key={row.id}>
                       <td>{row.sequence}</td>
@@ -477,8 +477,8 @@ const FolioReviewModal = ({ isOpen, issue, onClose, onApprove, onCorrectionSubmi
           </div>
                         )}
                       </td>
-                      <td>{row.pages}</td>
-                      <td>{row.pageRange}</td>
+                      <td>{row.pages ?? '—'}</td>
+                      <td>{row.pageRange ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>

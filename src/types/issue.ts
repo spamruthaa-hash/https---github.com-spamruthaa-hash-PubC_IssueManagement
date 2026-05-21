@@ -43,6 +43,9 @@ export interface FolioMatterPlacement {
   kind: 'matter';
   matterType: FolioMatterType;
   file?: FolioFileAttachment;
+  /** Set during folio arrangement when page ranges are recalculated. */
+  startPage?: number;
+  endPage?: number;
 }
 
 export interface FolioArticlePlacement {

@@ -41,6 +41,7 @@ The header has been successfully implemented with:
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v18 or higher)
 - npm or yarn
 

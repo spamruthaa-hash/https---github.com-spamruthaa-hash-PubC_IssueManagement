@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Issue, IssueMilestone, IssueType } from '../types/issue';
+import type { Issue, IssueType } from '../types/issue';
 import { formatDisplayDateTime } from '../utils/dateFormat';
+import { getIssueTableMilestoneDisplay } from '../utils/scheduleIssueSync';
+import type { MilestoneBadgeStatus } from '../utils/scheduleMilestoneStatus';
+import FilterDropdown from './FilterDropdown';
 import './IssuesTable.css';
 
 interface IssuesTableProps {
   issues: Issue[];
+  hasUploadedSchedule: boolean;
   onCreate: () => void;
   onView: (issue: Issue) => void;
   onEdit: (issue: Issue) => void;
   onDelete: (issue: Issue) => void;
+  onUploadSchedule: () => void;
+  onViewSchedule: () => void;
 }
 
 type TabId = 'in-progress' | 'history';
@@ -27,15 +33,22 @@ const formatEstimatedPublication = (iso: string): string => {
 };
 
 interface MilestoneBadgeProps {
-  milestone: IssueMilestone;
-  variant?: 'in-progress' | 'completed';
+  label: string;
+  status: MilestoneBadgeStatus;
 }
 
-const MilestoneBadge = ({ milestone, variant = 'in-progress' }: MilestoneBadgeProps) => (
-  <span className={`issues-table-milestone-badge issues-table-milestone-badge--${variant}`}>
-    {variant === 'completed' ? (
+const MilestoneBadge = ({ label, status }: MilestoneBadgeProps) => (
+  <span className={`issues-table-milestone-badge issues-table-milestone-badge--${status}`}>
+    {status === 'completed' ? (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="issues-table-milestone-icon">
         <path d="M5.54171 9.45008L3.09171 7.00008L2.33337 7.75841L5.54171 10.9667L12.25 4.25841L11.4917 3.50008L5.54171 9.45008Z" fill="currentColor" />
+      </svg>
+    ) : status === 'not-started' ? (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="issues-table-milestone-icon">
+        <path
+          d="M4.66667 9.33333H5.83333V4.66667H4.66667V9.33333ZM7 9.33333L10.5 7L7 4.66667V9.33333ZM7 12.8333C6.19306 12.8333 5.43472 12.6802 4.725 12.374C4.01528 12.0677 3.39792 11.6521 2.87292 11.1271C2.34792 10.6021 1.93229 9.98472 1.62604 9.275C1.31979 8.56528 1.16667 7.80694 1.16667 7C1.16667 6.19306 1.31979 5.43472 1.62604 4.725C1.93229 4.01528 2.34792 3.39792 2.87292 2.87292C3.39792 2.34792 4.01528 1.93229 4.725 1.62604C5.43472 1.31979 6.19306 1.16667 7 1.16667C7.80694 1.16667 8.56528 1.31979 9.275 1.62604C9.98472 1.93229 10.6021 2.34792 11.1271 2.87292C11.6521 3.39792 12.0677 4.01528 12.374 4.725C12.6802 5.43472 12.8333 6.19306 12.8333 7C12.8333 7.80694 12.6802 8.56528 12.374 9.275C12.0677 9.98472 11.6521 10.6021 11.1271 11.1271C10.6021 11.6521 9.98472 12.0677 9.275 12.374C8.56528 12.6802 7.80694 12.8333 7 12.8333ZM7 11.6667C8.30278 11.6667 9.40625 11.2146 10.3104 10.3104C11.2146 9.40625 11.6667 8.30278 11.6667 7C11.6667 5.69722 11.2146 4.59375 10.3104 3.68958C9.40625 2.78542 8.30278 2.33333 7 2.33333C5.69722 2.33333 4.59375 2.78542 3.68958 3.68958C2.78542 4.59375 2.33333 5.69722 2.33333 7C2.33333 8.30278 2.78542 9.40625 3.68958 10.3104C4.59375 11.2146 5.69722 11.6667 7 11.6667Z"
+          fill="currentColor"
+        />
       </svg>
     ) : (
       <svg
@@ -52,7 +65,7 @@ const MilestoneBadge = ({ milestone, variant = 'in-progress' }: MilestoneBadgePr
         />
       </svg>
     )}
-    {milestone}
+    {label}
   </span>
 );
 
@@ -265,107 +278,20 @@ const RowActionsMenu = ({ issue, onView, onEdit, onDelete }: RowActionsMenuProps
   );
 };
 
-interface FilterDropdownProps {
-  label: string;
-  value: string;
-  displayValue: string;
-  options: { id: string; label: string }[];
-  onSelect: (id: string) => void;
-  alignRight?: boolean;
-}
-
-const FilterDropdown = ({
-  label,
-  value,
-  displayValue,
-  options,
-  onSelect,
-  alignRight,
-}: FilterDropdownProps) => {
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
-
-  return (
-    <div className="issues-filter" ref={wrapperRef}>
-      <button
-        type="button"
-        className="issues-filter-btn"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span className="issues-filter-label">{label}:</span>
-        <span className="issues-filter-value">{displayValue}</span>
-        <svg
-          className={`issues-filter-chevron${open ? ' issues-filter-chevron--open' : ''}`}
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-        >
-          <path d="M7 10l5 5 5-5H7Z" fill="#35424D" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          className={`issues-filter-menu${alignRight ? ' issues-filter-menu--right' : ''}`}
-          role="listbox"
-        >
-          {options.map(option => {
-            const isSelected = option.id === value;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                className={`issues-filter-item${isSelected ? ' issues-filter-item--selected' : ''}`}
-                onClick={() => {
-                  onSelect(option.id);
-                  setOpen(false);
-                }}
-              >
-                <span className="issues-filter-item-check" aria-hidden>
-                  {isSelected && (
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path
-                        d="M7.5 10.5l2 2L13 9"
-                        stroke="#35424D"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </span>
-                <span className="issues-filter-item-label">{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTableProps) => {
+const IssuesTable = ({
+  issues,
+  hasUploadedSchedule,
+  onCreate,
+  onView,
+  onEdit,
+  onDelete,
+  onUploadSchedule,
+  onViewSchedule,
+}: IssuesTableProps) => {
   const [activeTab, setActiveTab] = useState<TabId>('in-progress');
   const [search, setSearch] = useState('');
   const [journalFilter, setJournalFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<IssueTypeFilter>('all');
-  const [showScheduleTooltip, setShowScheduleTooltip] = useState(false);
 
   /** Reset search/filters when switching tabs so each tab starts clean. */
   useEffect(() => {
@@ -415,6 +341,7 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
         `${i.volume}/${i.issue}`,
         i.issueTitle,
         i.milestone,
+        getIssueTableMilestoneDisplay(i).label,
         ISSUE_TYPE_LABEL[i.issueType],
       ]
         .join(' ')
@@ -453,28 +380,13 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
         <h1 className="issues-page-title">Issues</h1>
 
         <div className="issues-page-actions">
-          <div
-            className="upload-schedule-button-wrapper"
-            onMouseEnter={() => setShowScheduleTooltip(true)}
-            onMouseLeave={() => setShowScheduleTooltip(false)}
+          <button
+            type="button"
+            className="upload-schedule-button"
+            onClick={hasUploadedSchedule ? onViewSchedule : onUploadSchedule}
           >
-            <button className="upload-schedule-button" disabled>
-              <span className="upload-schedule-text">Upload Schedule</span>
-              <span className="upcoming-badge">Upcoming</span>
-            </button>
-            {showScheduleTooltip && (
-              <div className="schedule-tooltip">
-                <div className="tooltip-arrow" />
-                <div className="tooltip-content">
-                  <p className="tooltip-main">See all your issue details and timelines in one place.</p>
-                  <p className="tooltip-sub">
-                    Upload your schedule to manage deadlines across all journals and get notified when
-                    action is needed.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+            {hasUploadedSchedule ? 'View Schedule' : 'Upload Schedule'}
+          </button>
 
           <button type="button" className="issues-create-button" onClick={onCreate}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -633,13 +545,22 @@ const IssuesTable = ({ issues, onCreate, onView, onEdit, onDelete }: IssuesTable
                 >
                   <td data-label="Journal">{issue.journalAcronym}</td>
                   <td data-label="Volume/Issue">{issue.volume}/{issue.issue}</td>
-                  <td data-label="Issue Type">{ISSUE_TYPE_LABEL[issue.issueType]}</td>
-                  <td data-label="Assigned Articles">{issue.assignedArticleIds.length}</td>
+                  <td data-label="Issue Type">
+                    {ISSUE_TYPE_LABEL[issue.issueType] ?? '—'}
+                  </td>
+                  <td data-label="Assigned Articles">
+                    {issue.assignedArticleIds?.length ?? 0}
+                  </td>
                   <td data-label="Milestone">
-                    <MilestoneBadge
-                      milestone={issue.milestone}
-                      variant={activeTab === 'history' ? 'completed' : 'in-progress'}
-                    />
+                    {(() => {
+                      const { label, badgeStatus } = getIssueTableMilestoneDisplay(issue);
+                      return (
+                        <MilestoneBadge
+                          label={label}
+                          status={activeTab === 'history' ? 'completed' : badgeStatus}
+                        />
+                      );
+                    })()}
                   </td>
                   <td data-label={activeTab === 'history' ? 'Last Processed' : 'Estimated Publication'}>
                     {activeTab === 'history'
