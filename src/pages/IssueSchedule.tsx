@@ -373,8 +373,12 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
 
 
-  const gridTemplateColumns = `${ISSUE_COL_WIDTH}px repeat(${timelineColumns.length}, minmax(${columnMinPx}px, 1fr))`;
-  const ganttMinWidth = ISSUE_COL_WIDTH + timelineColumns.length * columnMinPx;
+  const gridTemplateColumns = `minmax(120px, ${ISSUE_COL_WIDTH}px) repeat(${timelineColumns.length}, minmax(${columnMinPx}px, 1fr))`;
+  const ganttGridStyle = {
+    gridTemplateColumns,
+    ['--schedule-timeline-columns' as string]: timelineColumns.length,
+    ['--schedule-timeline-col-min' as string]: `${columnMinPx}px`,
+  } as React.CSSProperties;
 
   const milestonePopData = useMemo(
     () =>
@@ -845,11 +849,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
               <div className="issue-schedule-gantt">
 
-                <div
-                  ref={ganttInnerRef}
-                  className="issue-schedule-gantt-inner"
-                  style={{ minWidth: ganttMinWidth }}
-                >
+                <div ref={ganttInnerRef} className="issue-schedule-gantt-inner">
                 <div
                   ref={ganttGridRef}
                   className={[
@@ -858,7 +858,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  style={{ gridTemplateColumns, minWidth: ganttMinWidth }}
+                  style={ganttGridStyle}
                 >
 
                   <div className="issue-schedule-gantt-header issue-schedule-issue-col">Issue</div>
@@ -930,13 +930,8 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
                           className="issue-schedule-timeline"
 
                           style={{
-
                             gridColumn: `2 / -1`,
-
-                            gridTemplateColumns: `repeat(${timelineColumns.length}, minmax(${columnMinPx}px, 1fr))`,
-
                             minHeight: rowHeight,
-
                           }}
 
                         >

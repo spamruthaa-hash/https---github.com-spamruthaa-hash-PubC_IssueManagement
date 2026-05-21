@@ -134,6 +134,7 @@
 
 /* Gantt chart */
 .issue-schedule-gantt {
+  width: 100%;
   border: 1px solid #e3e4e5;
   border-radius: 4px;
   overflow: auto;
@@ -142,8 +143,8 @@
 
 .issue-schedule-gantt-inner {
   position: relative;
-  width: fit-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Vertical "today" overlay — body rows only, below the header (no grid participation). */
@@ -166,7 +167,11 @@
 
 .issue-schedule-gantt-grid {
   display: grid;
-  min-width: 1040px;
+  width: 100%;
+  min-width: max(
+    100%,
+    calc(120px + var(--schedule-timeline-columns, 1) * var(--schedule-timeline-col-min, 96px))
+  );
 }
 
 .issue-schedule-gantt-header {
@@ -198,6 +203,9 @@
 }
 
 .issue-schedule-week-col {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-right: 1px solid #e3e4e5;
 }
 
@@ -215,6 +223,9 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: left;
   background: #fbfbfb;
   border-right: 1px solid #e3e4e5;
@@ -297,12 +308,18 @@
 .issue-schedule-timeline {
   position: relative;
   display: grid;
+  min-width: 0;
   min-height: 96px;
+  grid-template-columns: repeat(
+    var(--schedule-timeline-columns, 1),
+    minmax(var(--schedule-timeline-col-min, 0px), 1fr)
+  );
   border-bottom: 1px solid #f6f7f7;
   background: #ffffff;
 }
 
 .issue-schedule-timeline-week {
+  min-width: 0;
   border-right: 1px solid #f6f7f7;
   min-height: inherit;
 }
