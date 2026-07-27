@@ -33,6 +33,7 @@ const normalizeIssue = (raw: unknown): Issue | null => {
     assignedArticleIds: Array.isArray(issue.assignedArticleIds)
       ? issue.assignedArticleIds
       : [],
+    externalArticles: Array.isArray(issue.externalArticles) ? issue.externalArticles : undefined,
     milestone: issue.milestone ?? 'Article Lineup',
     status: issue.status === 'completed' ? 'completed' : 'in-progress',
     createdAt: issue.createdAt ?? new Date().toISOString(),

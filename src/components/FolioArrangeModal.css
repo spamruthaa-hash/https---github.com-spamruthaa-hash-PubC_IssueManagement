@@ -10,6 +10,11 @@
   font-family: 'Source Sans Pro', sans-serif;
 }
 
+.folio-arrange-overlay--child-active {
+  padding: 0;
+  background: transparent;
+}
+
 /* Embedded as a Create Issue wizard stage: no dialog chrome, fills the step area. */
 .folio-arrange-embedded,
 .folio-arrange-inline {
@@ -517,12 +522,23 @@
   top: calc(100% + 4px);
   right: 0;
   z-index: 2;
-  width: 148px;
+  width: 196px;
   overflow: hidden;
   background: #ffffff;
   border: 1px solid #eceeee;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(39, 40, 51, 0.08);
+}
+
+.folio-arrange-add-menu-label {
+  margin: 0;
+  padding: 6px 12px;
+  background: #edf0fd;
+  color: #35424d;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
 }
 
 .folio-arrange-add-menu-item {
@@ -739,7 +755,7 @@
   top: calc(100% + 4px);
   left: 0;
   z-index: 4;
-  width: 148px;
+  width: 196px;
   overflow: hidden;
   background: #ffffff;
   border: 1px solid #eceeee;
@@ -748,6 +764,17 @@
     0 4px 2px rgba(0, 0, 0, 0.09),
     0 8px 2.5px rgba(0, 0, 0, 0.05),
     0 14px 3px rgba(0, 0, 0, 0.01);
+}
+
+.folio-arrange-row-add-menu-label {
+  margin: 0;
+  padding: 6px 12px;
+  background: #edf0fd;
+  color: #35424d;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
 }
 
 .folio-arrange-row-add-menu-item {

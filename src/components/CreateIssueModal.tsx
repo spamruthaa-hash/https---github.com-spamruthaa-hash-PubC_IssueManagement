@@ -9,7 +9,6 @@ import {
 } from 'react';
 import {
   ANNUAL_PAGE_BUDGET_TOOLTIP,
-  ARTICLES_BY_JOURNAL,
   MILESTONES,
   PAGE_BUDGET,
   SORT_OPTIONS,
@@ -22,7 +21,9 @@ import type { FolioArrangement, FolioArrangementItem, FolioFileAttachment, Issue
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import FolioArrangeModal from './FolioArrangeModal';
 import FolioPreviewTable from './FolioPreviewTable';
+import AddNewArticleModal from './AddNewArticleModal';
 import { getFolioItemPageCount, recalculateFolioPageRanges } from '../utils/folioPageRanges';
+import { getLineupArticlesForJournal } from '../utils/lineupArticles';
 import './CreateIssueModal.css';
 
 interface CreateIssueModalProps {
@@ -42,6 +43,8 @@ export interface IssueFormData {
   issueType: 'regular' | 'special' | '';
   outputFormat: 'print' | 'online' | 'both' | '';
   selectedArticles?: Article[];
+  /** Articles manually added during lineup for issue management only. */
+  externalArticles?: Article[];
   /** Step 2 footer + Review step Create Issue (Figma 300:75313) */
   lineupAction?: 'proceed' | 'save-draft' | 'confirm-lineup' | 'create-issue';
   /**
@@ -114,6 +117,9 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const [showMilestoneDropdown, setShowMilestoneDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [addedArticleIds, setAddedArticleIds] = useState<Set<string>>(new Set());
+  const [externalArticles, setExternalArticles] = useState<Article[]>([]);
+  const [showAddNewArticleModal, setShowAddNewArticleModal] = useState(false);
+  const [folioNestedModalOpen, setFolioNestedModalOpen] = useState(false);
   /** Review banner + stepper: lineup draft / confirm / skipped (Proceed) — Figma 300:75313 / 301:77171 / 301:77634 */
   const [reviewBannerVariant, setReviewBannerVariant] = useState<'draft' | 'confirm' | 'proceed'>('draft');
   /** Jane folio create-flow: arrangement captured in step 2 */
@@ -140,7 +146,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     journal.fullName.toLowerCase().includes(journalSearchTerm.toLowerCase())
   );
 
-  const availableArticles = ARTICLES_BY_JOURNAL[formData.journal] || [];
+  const availableArticles = getLineupArticlesForJournal(formData.journal, externalArticles);
 
   const addedArticles = availableArticles.filter(a => addedArticleIds.has(a.id));
 
@@ -170,7 +176,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const unassignedPoolCount = availableArticles.filter(a => !addedArticleIds.has(a.id)).length;
   /** Show search / milestone / sort when there is anything to filter (pool or assigned list). */
   const showArticleFilters =
-    availableArticles.length > 0 && (unassignedPoolCount > 0 || addedArticles.length > 0);
+    Boolean(formData.journal) && (availableArticles.length > 0 || addedArticles.length > 0);
 
   const pagesAdded = addedArticles.reduce((sum, a) => sum + a.pages, 0);
   const pagesRemaining = PAGE_BUDGET - pagesAdded;
@@ -236,6 +242,9 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     setJournalSearchTerm('');
     setCurrentStep(1);
     setAddedArticleIds(new Set());
+    setExternalArticles([]);
+    setShowAddNewArticleModal(false);
+    setFolioNestedModalOpen(false);
     setArticleSearch('');
     setMilestoneFilter('All');
     setSortBy('acceptance-asc');
@@ -367,8 +376,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
 
   const articlesFromFolio = (arrangement?: FolioArrangement): Article[] => {
     if (!arrangement) return [];
-    const pool = ARTICLES_BY_JOURNAL[formData.journal] || [];
-    const byId = new Map(pool.map(a => [a.id, a]));
+    const byId = new Map(getLineupArticlesForJournal(formData.journal, externalArticles).map(a => [a.id, a]));
     return arrangement.items
       .filter((item): item is Extract<FolioArrangementItem, { kind: 'article' }> => item.kind === 'article')
       .map(item => byId.get(item.articleId))
@@ -395,6 +403,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
           ? formData.outputFormat
           : 'online',
       assignedArticleIds: folioArticles.map(a => a.id),
+      externalArticles,
       folioArrangement: pendingFolioArrangement,
       milestone: 'Folio Creation',
       status: 'in-progress',
@@ -402,16 +411,15 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     };
     // articlesFromFolio depends on formData.journal + pendingFolioArrangement
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isJaneFlow, formData, pendingFolioArrangement]);
+  }, [externalArticles, isJaneFlow, formData, pendingFolioArrangement]);
 
   /** Read-only folio data for Jane's review step. */
   const folioArticlesById = useMemo(() => {
-    const pool = ARTICLES_BY_JOURNAL[formData.journal] || [];
-    return pool.reduce<Record<string, Article>>((acc, article) => {
+    return getLineupArticlesForJournal(formData.journal, externalArticles).reduce<Record<string, Article>>((acc, article) => {
       acc[article.id] = article;
       return acc;
     }, {});
-  }, [formData.journal]);
+  }, [externalArticles, formData.journal]);
 
   const folioPreviewItems = useMemo(
     () => recalculateFolioPageRanges(pendingFolioArrangement?.items ?? [], folioArticlesById),
@@ -440,7 +448,12 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
       return;
     }
 
-    const payload = { ...formData, selectedArticles: addedArticles, lineupAction };
+    const payload = {
+      ...formData,
+      selectedArticles: addedArticles,
+      externalArticles,
+      lineupAction,
+    };
     if (lineupAction === 'save-draft') {
       onSubmit(payload);
       setReviewBannerVariant('draft');
@@ -467,6 +480,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     onSubmit({
       ...formData,
       selectedArticles: isJaneFlow ? articlesFromFolio(pendingFolioArrangement) : addedArticles,
+      externalArticles: externalArticles.length > 0 ? externalArticles : undefined,
       lineupAction: 'create-issue',
       lineupStatus: reviewBannerVariant,
       folioArrangement: isJaneFlow && reviewBannerVariant !== 'proceed' ? pendingFolioArrangement : undefined,
@@ -484,6 +498,16 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const goToEditLineup = () => {
     setCurrentStep(2);
   };
+
+  const handleAddExternalArticle = (article: Article) => {
+    setExternalArticles(prev => [...prev.filter(existing => existing.id !== article.id), article]);
+    setAddedArticleIds(prev => new Set([...prev, article.id]));
+  };
+
+  const existingArticleIds = useMemo(
+    () => getLineupArticlesForJournal(formData.journal, externalArticles).map(article => article.id),
+    [externalArticles, formData.journal],
+  );
 
   const goToEditFolio = () => {
     setCurrentStep(2);
@@ -546,6 +570,20 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   };
 
   if (!shouldRender) return null;
+
+  if (showAddNewArticleModal) {
+    return (
+      <AddNewArticleModal
+        isOpen
+        journalId={formData.journal}
+        existingArticleIds={existingArticleIds}
+        onClose={() => setShowAddNewArticleModal(false)}
+        onAdd={handleAddExternalArticle}
+      />
+    );
+  }
+
+  const hideCreateIssueChrome = folioNestedModalOpen && currentStep === 2 && isJaneFlow;
 
   const isFormComplete =
     formData.journal && formData.volume && formData.issue &&
@@ -612,6 +650,9 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const getMilestoneBadgeClass = (variant: 'inprogress' | 'paused') =>
     variant === 'paused' ? 'milestone-badge milestone-badge-paused' : 'milestone-badge milestone-badge-inprogress';
 
+  const renderArticleScheduleCell = (article: Article, value: string) =>
+    article.source === 'external' ? '—' : value;
+
   const highlight = (text: string, query: string) => {
     if (!query.trim()) return <>{text}</>;
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -629,12 +670,20 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
 
   return (
     <div
-      className={`modal-overlay${isExiting ? ' modal-overlay--leaving' : ''}`}
-      onClick={handleClose}
+      className={[
+        'modal-overlay',
+        isExiting ? 'modal-overlay--leaving' : '',
+        hideCreateIssueChrome ? 'modal-overlay--child-active' : '',
+      ].filter(Boolean).join(' ')}
+      onClick={hideCreateIssueChrome ? undefined : handleClose}
       onAnimationEnd={handleOverlayAnimationEnd}
       aria-hidden={isExiting}
     >
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal-container${hideCreateIssueChrome ? ' modal-container--child-active' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {!hideCreateIssueChrome && (
         <div className="modal-header">
           <h2 className="modal-title">Create Issue</h2>
           <button className="modal-close-button" onClick={handleClose} aria-label="Close">
@@ -643,6 +692,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
             </svg>
           </button>
         </div>
+        )}
 
         {/* ── STEP 1 ── */}
         {currentStep === 1 && (
@@ -838,17 +888,28 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
         {/* ── STEP 2 (Jane): Folio Creation as an in-modal stage ── */}
         {currentStep === 2 && isJaneFlow && janeDraftIssue && (
           <div className="modal-form modal-form-folio-step modal-step-enter">
-            <div className="folio-step-stepper">{renderStepper()}</div>
+            {!folioNestedModalOpen && <div className="folio-step-stepper">{renderStepper()}</div>}
             <FolioArrangeModal
               embedded
               isOpen={true}
               issue={janeDraftIssue}
+              onNestedModalOpenChange={setFolioNestedModalOpen}
               onClose={() => setCurrentStep(1)}
-              onSave={(_issueId, arrangement) => finishJaneFolioStep('confirm', arrangement)}
+              onSave={(_issueId, arrangement, folioExternalArticles) => {
+                if (folioExternalArticles) {
+                  setExternalArticles(folioExternalArticles);
+                }
+                finishJaneFolioStep('confirm', arrangement);
+              }}
               createWizard={{
                 onBack: () => setCurrentStep(1),
                 onProceed: () => finishJaneFolioStep('proceed'),
-                onSaveDraft: (_issueId, arrangement) => finishJaneFolioStep('draft', arrangement),
+                onSaveDraft: (_issueId, arrangement, folioExternalArticles) => {
+                  if (folioExternalArticles) {
+                    setExternalArticles(folioExternalArticles);
+                  }
+                  finishJaneFolioStep('draft', arrangement);
+                },
               }}
             />
           </div>
@@ -986,11 +1047,24 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
               </div>
               )}
 
-              {/* Available Articles */}
-              {unassignedPoolCount > 0 && (
+              {formData.journal && (
               <>
-              <div className="lineup-section-title">
-                Available Articles ({filteredAndSortedArticles.length})
+              <div className="lineup-section-head">
+                <div className="lineup-section-title">
+                  Available Articles ({filteredAndSortedArticles.length})
+                </div>
+                <button
+                  type="button"
+                  className="lineup-add-trigger"
+                  onClick={() => setShowAddNewArticleModal(true)}
+                >
+                  <span className="lineup-add-trigger-icon" aria-hidden>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 4.17v11.66M4.17 10h11.66" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  Add
+                </button>
               </div>
 
               {filteredAndSortedArticles.length > 0 ? (
@@ -1088,13 +1162,24 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
               ) : (
               <div className="articles-table-wrapper articles-table-empty" role="status">
                 <div className="lineup-no-results">
-                  <p className="lineup-no-results-title">No results found</p>
-                  <p className="lineup-no-results-hint">
-                    Nothing matches your search or milestone filter. Clear the filter to see all available articles.
-                  </p>
-                  <button type="button" className="lineup-clear-filters-btn" onClick={clearLineupFilters}>
-                    Clear filter
-                  </button>
+                  {unassignedPoolCount > 0 ? (
+                    <>
+                      <p className="lineup-no-results-title">No results found</p>
+                      <p className="lineup-no-results-hint">
+                        Nothing matches your search or milestone filter. Clear the filter to see all available articles.
+                      </p>
+                      <button type="button" className="lineup-clear-filters-btn" onClick={clearLineupFilters}>
+                        Clear filter
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="lineup-no-results-title">No articles available</p>
+                      <p className="lineup-no-results-hint">
+                        Use Add to pick from the journal pool or add a new article processed outside the system.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               )}
@@ -1133,7 +1218,15 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                         {filteredAssignedArticles.map(article => (
                           <tr key={article.id}>
                             <td>
-                              <span className="article-id">{article.id}</span>
+                              <span
+                                className={
+                                  article.source === 'external'
+                                    ? 'article-id article-id--external'
+                                    : 'article-id'
+                                }
+                              >
+                                {article.id}
+                              </span>
                             </td>
                             <td className="article-type">{article.type}</td>
                             <td className="article-content">
@@ -1160,29 +1253,37 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                             </td>
                             <td className="article-pages">{article.pages}</td>
                             <td>
-                              <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
-                                {article.milestoneVariant === 'paused' ? (
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
-                                  </svg>
-                                ) : (
-                                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                    <mask id={`milestone-inprogress-mask-assigned-${article.id}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="14" height="14">
-                                      <rect width="14" height="14" fill="#D9D9D9" />
-                                    </mask>
-                                    <g mask={`url(#milestone-inprogress-mask-assigned-${article.id})`}>
-                                      <path
-                                        d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
-                                        fill="currentColor"
-                                      />
-                                    </g>
-                                  </svg>
-                                )}
-                                {article.milestone}
-                              </span>
+                              {article.source === 'external' ? (
+                                <span className="article-date">—</span>
+                              ) : (
+                                <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
+                                  {article.milestoneVariant === 'paused' ? (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
+                                    </svg>
+                                  ) : (
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                      <mask id={`milestone-inprogress-mask-assigned-${article.id}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="14" height="14">
+                                        <rect width="14" height="14" fill="#D9D9D9" />
+                                      </mask>
+                                      <g mask={`url(#milestone-inprogress-mask-assigned-${article.id})`}>
+                                        <path
+                                          d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
+                                          fill="currentColor"
+                                        />
+                                      </g>
+                                    </svg>
+                                  )}
+                                  {article.milestone}
+                                </span>
+                              )}
                             </td>
-                            <td className="article-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
-                            <td className="article-date">{formatDisplayDateTime(article.acceptance)}</td>
+                            <td className="article-date">
+                              {renderArticleScheduleCell(article, formatDisplayDateTime(article.estimatedPublication))}
+                            </td>
+                            <td className="article-date">
+                              {renderArticleScheduleCell(article, formatDisplayDateTime(article.acceptance))}
+                            </td>
                             <td className="article-action-cell">
                               <button className="remove-article-btn" onClick={() => toggleArticle(article.id)}>
                                 Remove
@@ -1504,7 +1605,15 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                       {savedLineupSorted.map(article => (
                         <tr key={`review-${article.id}`}>
                           <td>
-                            <span className="article-id">{article.id}</span>
+                            <span
+                              className={
+                                article.source === 'external'
+                                  ? 'article-id article-id--external'
+                                  : 'article-id'
+                              }
+                            >
+                              {article.id}
+                            </span>
                           </td>
                           <td className="article-type">{article.type}</td>
                           <td className="article-content">
@@ -1539,37 +1648,45 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                           </td>
                           <td className="article-pages">{article.pages}</td>
                           <td>
-                            <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
-                              {article.milestoneVariant === 'paused' ? (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor" />
-                                </svg>
-                              ) : (
-                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                  <mask
-                                    id={`review-milestone-msk-${article.id}`}
-                                    style={{ maskType: 'alpha' }}
-                                    maskUnits="userSpaceOnUse"
-                                    x="0"
-                                    y="0"
-                                    width="14"
-                                    height="14"
-                                  >
-                                    <rect width="14" height="14" fill="#D9D9D9" />
-                                  </mask>
-                                  <g mask={`url(#review-milestone-msk-${article.id})`}>
-                                    <path
-                                      d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
-                                      fill="currentColor"
-                                    />
-                                  </g>
-                                </svg>
-                              )}
-                              {article.milestone}
-                            </span>
+                            {article.source === 'external' ? (
+                              <span className="article-date">—</span>
+                            ) : (
+                              <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
+                                {article.milestoneVariant === 'paused' ? (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor" />
+                                  </svg>
+                                ) : (
+                                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                    <mask
+                                      id={`review-milestone-msk-${article.id}`}
+                                      style={{ maskType: 'alpha' }}
+                                      maskUnits="userSpaceOnUse"
+                                      x="0"
+                                      y="0"
+                                      width="14"
+                                      height="14"
+                                    >
+                                      <rect width="14" height="14" fill="#D9D9D9" />
+                                    </mask>
+                                    <g mask={`url(#review-milestone-msk-${article.id})`}>
+                                      <path
+                                        d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
+                                        fill="currentColor"
+                                      />
+                                    </g>
+                                  </svg>
+                                )}
+                                {article.milestone}
+                              </span>
+                            )}
                           </td>
-                          <td className="article-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
-                          <td className="article-date">{formatDisplayDateTime(article.acceptance)}</td>
+                          <td className="article-date">
+                            {renderArticleScheduleCell(article, formatDisplayDateTime(article.estimatedPublication))}
+                          </td>
+                          <td className="article-date">
+                            {renderArticleScheduleCell(article, formatDisplayDateTime(article.acceptance))}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

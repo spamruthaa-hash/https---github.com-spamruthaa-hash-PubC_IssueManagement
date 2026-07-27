@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { getCurrentUser } from '../auth/currentUser';
-import { ARTICLES_BY_JOURNAL, PAGE_BUDGET, type Article } from '../data/articles';
+import { PAGE_BUDGET, type Article } from '../data/articles';
+import { getLineupArticlesForJournal } from '../utils/lineupArticles';
 import type { FolioArrangement, FolioArrangementItem, FolioFileAttachment, FolioMatterType, Issue } from '../types/issue';
+import AddNewArticleModal from './AddNewArticleModal';
 import ArticleLineupModal from './ArticleLineupModal';
 import { buildDefaultFolioArrangementItems } from '../utils/folioArrangementDefaults';
 import {
@@ -26,18 +28,20 @@ const MIN_FOLIO_CONFIRM_ARTICLES = 4;
 export interface FolioArrangeCreateWizardHandlers {
   onBack: () => void;
   onProceed: () => void;
-  onSaveDraft: (issueId: string, arrangement: FolioArrangement) => void;
+  onSaveDraft: (issueId: string, arrangement: FolioArrangement, externalArticles?: Article[]) => void;
 }
 
 interface FolioArrangeModalProps {
   isOpen: boolean;
   issue: Issue | null;
   onClose: () => void;
-  onSave: (issueId: string, arrangement: FolioArrangement) => void;
+  onSave: (issueId: string, arrangement: FolioArrangement, externalArticles?: Article[]) => void;
   /** Optional Create Issue step (Jane): Back / Proceed / Save draft / Confirm Folio */
   createWizard?: FolioArrangeCreateWizardHandlers;
   /** Render inline as a wizard stage instead of its own centered dialog. */
   embedded?: boolean;
+  /** Notifies parent when a nested dialog (add item / add article) is open. */
+  onNestedModalOpenChange?: (open: boolean) => void;
 }
 
 const ADD_ITEM_MATTER_TYPES = Object.keys(FOLIO_MATTER_LABELS) as FolioMatterType[];
@@ -50,6 +54,13 @@ type AddItemModalTarget = {
   insertBeforeIndex?: number;
   gapSuggestionId?: string;
   allowedCategories?: FolioMatterType[];
+};
+
+type AddArticleFlow = 'picker' | 'new';
+
+type AddArticleModalTarget = {
+  insertAfterIndex?: number;
+  flow: AddArticleFlow;
 };
 const SINGLE_INSTANCE_MATTER_TYPES: FolioMatterType[] = [
   'masthead',
@@ -131,12 +142,13 @@ const buildDefaultItems = (issue: Issue): FolioArrangementItem[] => {
   return buildDefaultFolioArrangementItems(issue);
 };
 
-const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embedded = false }: FolioArrangeModalProps) => {
+const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embedded = false, onNestedModalOpenChange }: FolioArrangeModalProps) => {
   const [items, setItems] = useState<FolioArrangementItem[]>([]);
   const [validationMessage, setValidationMessage] = useState('');
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [addItemModalTarget, setAddItemModalTarget] = useState<AddItemModalTarget | null>(null);
-  const [addArticleModalTarget, setAddArticleModalTarget] = useState<{ insertAfterIndex?: number } | null>(null);
+  const [addArticleModalTarget, setAddArticleModalTarget] = useState<AddArticleModalTarget | null>(null);
+  const [externalArticlesState, setExternalArticlesState] = useState<Article[]>([]);
   const [selectedAddItemType, setSelectedAddItemType] = useState<FolioMatterType | ''>('');
   const [selectedAddItemFile, setSelectedAddItemFile] = useState<FolioFileAttachment | null>(null);
   const [isAddItemCategoryOpen, setIsAddItemCategoryOpen] = useState(false);
@@ -152,8 +164,8 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
   const fileObjectUrlsRef = useRef<Set<string>>(new Set());
 
   const availableArticles = useMemo(
-    () => (issue ? ARTICLES_BY_JOURNAL[issue.journalId] ?? [] : []),
-    [issue],
+    () => (issue ? getLineupArticlesForJournal(issue.journalId, externalArticlesState) : []),
+    [externalArticlesState, issue],
   );
   const articlesById = useMemo(() => buildArticlesById(availableArticles), [availableArticles]);
   const currentFolioArticleIds = useMemo(
@@ -161,6 +173,10 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
       .filter((item): item is Extract<FolioArrangementItem, { kind: 'article' }> => item.kind === 'article')
       .map(item => item.articleId),
     [items],
+  );
+  const lineupIssue = useMemo(
+    () => (issue ? { ...issue, externalArticles: externalArticlesState } : null),
+    [externalArticlesState, issue],
   );
   const articleCount = items.filter(item => item.kind === 'article').length;
   const defaultFolioItemIds = useMemo(
@@ -198,10 +214,18 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
   }, [addItemModalTarget?.allowedCategories, items]);
   const selectedAddItemNeedsFile = selectedAddItemType ? requiresFolioFile(selectedAddItemType) : false;
   const canAddSelectedItem = Boolean(selectedAddItemType) && (!selectedAddItemNeedsFile || Boolean(selectedAddItemFile));
+  const showFolioShell = !addItemModalTarget && !addArticleModalTarget;
+
+  useEffect(() => {
+    onNestedModalOpenChange?.(!showFolioShell);
+  }, [onNestedModalOpenChange, showFolioShell]);
 
   useEffect(() => {
     if (!isOpen || !issue) return;
-    setItems(recalculateFolioPageRanges(buildDefaultItems(issue), articlesById));
+    const external = issue.externalArticles ?? [];
+    const byId = buildArticlesById(getLineupArticlesForJournal(issue.journalId, external));
+    setExternalArticlesState(external);
+    setItems(recalculateFolioPageRanges(buildDefaultItems(issue), byId));
     setValidationMessage('');
     setIsAddMenuOpen(false);
     setAddItemModalTarget(null);
@@ -219,7 +243,7 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
     setIsReturningFromAddArticle(false);
     setIsClosingAddArticle(false);
     setDismissedGapSuggestionIds(new Set());
-  }, [articlesById, isOpen, issue]);
+  }, [isOpen, issue]);
 
   useEffect(() => {
     setDismissedGapSuggestionIds(prev => {
@@ -495,14 +519,14 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
     handleCloseAddItemModal({ keepSelectedFile: true });
   };
 
-  const handleOpenAddArticleModal = (insertAfterIndex?: number) => {
+  const handleOpenAddArticleFlow = (flow: AddArticleFlow, insertAfterIndex?: number) => {
     if (addArticleCloseTimeoutRef.current !== null) {
       window.clearTimeout(addArticleCloseTimeoutRef.current);
       addArticleCloseTimeoutRef.current = null;
     }
     setIsReturningFromAddArticle(false);
     setIsClosingAddArticle(false);
-    setAddArticleModalTarget({ insertAfterIndex });
+    setAddArticleModalTarget({ insertAfterIndex, flow });
     setIsAddMenuOpen(false);
     setValidationMessage('');
   };
@@ -516,11 +540,20 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
     addArticleCloseTimeoutRef.current = window.setTimeout(() => {
       setAddArticleModalTarget(null);
       setIsClosingAddArticle(false);
+      setIsReturningFromAddArticle(false);
       addArticleCloseTimeoutRef.current = null;
     }, 180);
   };
 
-  const handleConfirmAddArticles = (_issueId: string, articleIds: string[]) => {
+  const handleConfirmAddArticles = (_issueId: string, articleIds: string[], externalArticles?: Article[]) => {
+    const nextExternalArticles = externalArticles ?? externalArticlesState;
+    if (externalArticles) {
+      setExternalArticlesState(externalArticles);
+    }
+    const lookup = buildArticlesById(
+      issue ? getLineupArticlesForJournal(issue.journalId, nextExternalArticles) : [],
+    );
+
     setItems(prev => {
       const selectedArticleIds = new Set(articleIds);
       const targetIndex = addArticleModalTarget?.insertAfterIndex;
@@ -532,7 +565,7 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
           .map(item => item.articleId),
       );
       const newArticleItems = articleIds
-        .filter(articleId => !retainedArticleIds.has(articleId) && Boolean(articlesById[articleId]))
+        .filter(articleId => !retainedArticleIds.has(articleId) && Boolean(lookup[articleId]))
         .map(articleItem);
 
       if (newArticleItems.length > 0) {
@@ -548,8 +581,47 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
         retainedItems.splice(insertAt, 0, ...newArticleItems);
       }
 
-      return recalculateFolioPageRanges(retainedItems, articlesById);
+      return recalculateFolioPageRanges(retainedItems, lookup);
     });
+    setValidationMessage('');
+    setAddArticleModalTarget(null);
+    setIsClosingAddArticle(false);
+    setIsReturningFromAddArticle(false);
+    if (addArticleCloseTimeoutRef.current !== null) {
+      window.clearTimeout(addArticleCloseTimeoutRef.current);
+      addArticleCloseTimeoutRef.current = null;
+    }
+  };
+
+  const handleAddNewExternalArticle = (article: Article) => {
+    if (!issue) return;
+
+    const nextExternalArticles = [
+      ...externalArticlesState.filter(existing => existing.id !== article.id),
+      article,
+    ];
+    const lookup = buildArticlesById(getLineupArticlesForJournal(issue.journalId, nextExternalArticles));
+    setExternalArticlesState(nextExternalArticles);
+
+    setItems(prev => {
+      const targetIndex = addArticleModalTarget?.insertAfterIndex;
+      const anchorItemId = targetIndex === undefined ? undefined : prev[targetIndex]?.id;
+      const retainedItems = [...prev];
+      const newItem = articleItem(article.id);
+      const anchorIndex = anchorItemId
+        ? retainedItems.findIndex(item => item.id === anchorItemId)
+        : -1;
+      const insertAt = targetIndex === undefined
+        ? retainedItems.length
+        : anchorIndex >= 0
+          ? anchorIndex + 1
+          : Math.min(targetIndex + 1, retainedItems.length);
+
+      retainedItems.splice(insertAt, 0, newItem);
+      return recalculateFolioPageRanges(retainedItems, lookup);
+    });
+
+    setAddArticleModalTarget(null);
     setValidationMessage('');
   };
 
@@ -568,7 +640,7 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
       items: removeTemporaryFileUrls(items),
       submittedAt: new Date().toISOString(),
       submittedBy: actor,
-    });
+    }, externalArticlesState.length > 0 ? externalArticlesState : undefined);
     if (!createWizard) {
       onClose();
     }
@@ -583,7 +655,11 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
   const handleWizardSaveDraft = () => {
     if (!createWizard) return;
     setValidationMessage('');
-    createWizard.onSaveDraft(issue.id, buildCurrentArrangement());
+    createWizard.onSaveDraft(
+      issue.id,
+      buildCurrentArrangement(),
+      externalArticlesState.length > 0 ? externalArticlesState : undefined,
+    );
   };
 
   const handleWizardClose = () => {
@@ -595,8 +671,14 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
   };
 
   return (
-    <div className={embedded ? 'folio-arrange-embedded' : 'folio-arrange-overlay'} role="presentation">
-      {(embedded || !addItemModalTarget) && (
+    <div
+      className={[
+        embedded ? 'folio-arrange-embedded' : 'folio-arrange-overlay',
+        !embedded && !showFolioShell ? 'folio-arrange-overlay--child-active' : '',
+      ].filter(Boolean).join(' ')}
+      role="presentation"
+    >
+      {showFolioShell && (
         <section
           className={[
             embedded ? 'folio-arrange-inline' : 'folio-arrange-modal',
@@ -642,8 +724,21 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
                     <button type="button" className="folio-arrange-add-menu-item" role="menuitem" onClick={() => handleOpenAddItemModal()}>
                       Add Item
                     </button>
-                    <button type="button" className="folio-arrange-add-menu-item" role="menuitem" onClick={() => handleOpenAddArticleModal()}>
-                      Add Article
+                    <button
+                      type="button"
+                      className="folio-arrange-add-menu-item"
+                      role="menuitem"
+                      onClick={() => handleOpenAddArticleFlow('picker')}
+                    >
+                      Add from available article
+                    </button>
+                    <button
+                      type="button"
+                      className="folio-arrange-add-menu-item"
+                      role="menuitem"
+                      onClick={() => handleOpenAddArticleFlow('new')}
+                    >
+                      Add new article
                     </button>
                   </div>
                 )}
@@ -660,7 +755,8 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
                 onFileChange={handleFileChange}
                 onRemoveFile={handleRemoveFile}
                 onOpenAddItemModal={handleOpenAddItemModal}
-                onAddArticleAfter={handleOpenAddArticleModal}
+                onAddArticleFromAvailableAfter={index => handleOpenAddArticleFlow('picker', index)}
+                onAddNewArticleAfter={index => handleOpenAddArticleFlow('new', index)}
                 onAcceptGapSuggestion={handleAcceptGapSuggestion}
                 onRejectGapSuggestion={handleRejectGapSuggestion}
               />
@@ -871,15 +967,25 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embed
       )}
 
       <ArticleLineupModal
-        isOpen={Boolean(addArticleModalTarget)}
-        issue={issue}
-        title="Add Articles"
+        isOpen={Boolean(addArticleModalTarget?.flow === 'picker')}
+        issue={lineupIssue}
+        title="Add from available article"
         headerAction="back"
         initialArticleIds={currentFolioArticleIds}
+        externalArticles={externalArticlesState}
+        enableAddMenu
         manageBodyScroll={false}
         isClosing={isClosingAddArticle}
         onClose={handleCloseAddArticleModal}
         onConfirm={handleConfirmAddArticles}
+      />
+
+      <AddNewArticleModal
+        isOpen={Boolean(addArticleModalTarget?.flow === 'new')}
+        journalId={issue?.journalId ?? ''}
+        existingArticleIds={availableArticles.map(article => article.id)}
+        onClose={handleCloseAddArticleModal}
+        onAdd={handleAddNewExternalArticle}
       />
     </div>
   );

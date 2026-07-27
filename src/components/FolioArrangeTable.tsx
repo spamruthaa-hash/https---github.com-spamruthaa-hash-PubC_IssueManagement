@@ -74,7 +74,8 @@ interface FolioArrangeRowHandlers {
   onFileChange: (itemId: string, file: File) => void;
   onRemoveFile: (itemId: string) => void;
   onOpenAddItemModal: (insertAfterIndex?: number) => void;
-  onAddArticleAfter: (index: number) => void;
+  onAddArticleFromAvailableAfter: (index: number) => void;
+  onAddNewArticleAfter: (index: number) => void;
 }
 
 interface FolioArrangeTableProps extends FolioArrangeRowHandlers {
@@ -102,7 +103,8 @@ const FolioArrangeRow = ({
   onFileChange,
   onRemoveFile,
   onOpenAddItemModal,
-  onAddArticleAfter,
+  onAddArticleFromAvailableAfter,
+  onAddNewArticleAfter,
 }: FolioArrangeRowProps) => {
   const rowRef = useRef<HTMLTableRowElement>(null);
   const dragHandleRef = useRef<HTMLSpanElement>(null);
@@ -336,11 +338,22 @@ const FolioArrangeRow = ({
                 className="folio-arrange-row-add-menu-item"
                 role="menuitem"
                 onClick={() => {
-                  onAddArticleAfter(index);
+                  onAddArticleFromAvailableAfter(index);
                   setIsRowAddMenuOpen(false);
                 }}
               >
-                Add Article
+                Add from available article
+              </button>
+              <button
+                type="button"
+                className="folio-arrange-row-add-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onAddNewArticleAfter(index);
+                  setIsRowAddMenuOpen(false);
+                }}
+              >
+                Add new article
               </button>
             </div>
           )}

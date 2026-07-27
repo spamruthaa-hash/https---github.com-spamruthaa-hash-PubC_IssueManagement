@@ -189,6 +189,7 @@ const Issues = ({ onLogout }: IssuesProps) => {
       issueType: data.issueType,
       outputFormat: data.outputFormat,
       assignedArticleIds: (data.selectedArticles ?? []).map(a => a.id),
+      externalArticles: data.externalArticles,
       // Jane Dan create flow replaces "Article Lineup" with inline Folio Creation.
       // We store folio arrangement directly and set the milestone accordingly.
       articleLineupConfirmedAt: !isJaneFolioFlow && data.lineupStatus === 'confirm' ? createdAt : undefined,

@@ -28,6 +28,7 @@ import Sidebar from '../components/Sidebar';
 import { getCombinedScheduleEntries } from '../data/mockScheduleEntries';
 
 import { JOURNALS } from '../data/journals';
+import type { Article } from '../data/articles';
 
 import { useIssues } from '../hooks/useIssues';
 import { useJournalSchedules } from '../hooks/useJournalSchedules';
@@ -503,7 +504,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
   );
 
   const handleConfirmLineup = useCallback(
-    (id: string, articleIds: string[]) => {
+    (id: string, articleIds: string[], externalArticles?: Article[]) => {
       if (articleIds.length === 0) return;
 
       const currentIssue = issues.find(issue => issue.id === id);
@@ -511,6 +512,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
       updateIssue(id, {
         assignedArticleIds: articleIds,
+        externalArticles,
         articleLineupStartedAt: confirmedAt,
         articleLineupRevisions: currentIssue
           ? getArticleLineupRevisions(currentIssue, confirmedAt)
@@ -545,11 +547,12 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
   );
 
   const handleSaveFolioArrangement = useCallback(
-    (id: string, arrangement: FolioArrangement) => {
+    (id: string, arrangement: FolioArrangement, externalArticles?: Article[]) => {
       const currentIssue = issues.find(issue => issue.id === id);
 
       updateIssue(id, {
         folioArrangement: arrangement,
+        ...(externalArticles ? { externalArticles } : {}),
         folioCreationRevisions: currentIssue
           ? getFolioCreationRevisions(currentIssue, arrangement.submittedAt)
           : [],

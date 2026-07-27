@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { ARTICLES_BY_JOURNAL, type Article } from '../data/articles';
+import type { Article } from '../data/articles';
+import { buildArticlesById, getLineupArticlesForJournal } from '../utils/lineupArticles';
 import type { FolioArrangementItem, FolioFileAttachment, Issue } from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import { FOLIO_MATTER_LABELS } from './FolioArrangeTable';
@@ -89,10 +90,7 @@ const getOutputFileName = (issue: Issue): string =>
   `${sanitizeFilePart(issue.journalAcronym)}_${sanitizeFilePart(issue.volume)}_${sanitizeFilePart(issue.issue)}.pdf`;
 
 const buildReviewRows = (issue: Issue, items?: FolioArrangementItem[]): ReviewRow[] => {
-  const articlesById = (ARTICLES_BY_JOURNAL[issue.journalId] ?? []).reduce<Record<string, Article>>((acc, article) => {
-    acc[article.id] = article;
-    return acc;
-  }, {});
+  const articlesById = buildArticlesById(getLineupArticlesForJournal(issue.journalId, issue.externalArticles));
   const rangedItems = recalculateFolioPageRanges(
     items ?? getFolioArrangementItemsForDisplay(issue),
     articlesById,

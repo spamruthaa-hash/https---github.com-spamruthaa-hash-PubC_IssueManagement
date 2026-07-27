@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Toast, { ToastData } from '../components/Toast';
 import { getCurrentUser } from '../auth/currentUser';
+import type { Article } from '../data/articles';
 import { useIssues } from '../hooks/useIssues';
 import type {
   ArticleLineupRevision,
@@ -520,7 +521,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
     );
   };
 
-  const handleConfirmLineup = (id: string, articleIds: string[]) => {
+  const handleConfirmLineup = (id: string, articleIds: string[], externalArticles?: Article[]) => {
     if (articleIds.length === 0) return;
 
     const currentIssue = issue?.id === id ? issue : issues.find(i => i.id === id);
@@ -529,6 +530,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
 
     updateIssue(id, {
       assignedArticleIds: articleIds,
+      externalArticles,
       articleLineupStartedAt: confirmedAt,
       articleLineupRevisions: currentIssue
         ? getArticleLineupRevisions(currentIssue, confirmedAt)
@@ -570,7 +572,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
     });
   };
 
-  const handleSaveFolioArrangement = (id: string, arrangement: FolioArrangement) => {
+  const handleSaveFolioArrangement = (id: string, arrangement: FolioArrangement, externalArticles?: Article[]) => {
     const currentIssue = issue?.id === id ? issue : issues.find(i => i.id === id);
     const folioCreationRevisions = currentIssue
       ? getFolioCreationRevisions(currentIssue, arrangement.submittedAt)
@@ -581,6 +583,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
 
     updateIssue(id, {
       folioArrangement: arrangement,
+      ...(externalArticles ? { externalArticles } : {}),
       folioCreationRevisions,
       folioArrangementConfirmedAt: arrangement.submittedAt,
       folioArrangementConfirmedBy: arrangement.submittedBy,

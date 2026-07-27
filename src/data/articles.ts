@@ -21,6 +21,13 @@ export interface Article {
   estimatedPublication: string;
   acceptance: string;
   doi: string;
+  /** Articles added manually for issue management (processed outside the system). */
+  source?: 'journal' | 'external';
+  uploadFile?: {
+    name: string;
+    size: number;
+    type: string;
+  };
 }
 
 export const PAGE_BUDGET = 200;

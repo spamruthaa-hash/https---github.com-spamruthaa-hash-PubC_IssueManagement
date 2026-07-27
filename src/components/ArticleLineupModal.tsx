@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   ANNUAL_PAGE_BUDGET_TOOLTIP,
-  ARTICLES_BY_JOURNAL,
   MILESTONES,
   PAGE_BUDGET,
   SORT_OPTIONS,
@@ -9,6 +8,8 @@ import {
 } from '../data/articles';
 import type { Issue } from '../types/issue';
 import { formatDisplayDateTime } from '../utils/dateFormat';
+import { getLineupArticlesForJournal } from '../utils/lineupArticles';
+import AddNewArticleModal from './AddNewArticleModal';
 import './ArticleLineupModal.css';
 
 interface ArticleLineupModalProps {
@@ -17,10 +18,12 @@ interface ArticleLineupModalProps {
   title?: string;
   headerAction?: 'close' | 'back';
   initialArticleIds?: string[];
+  externalArticles?: Article[];
+  enableAddMenu?: boolean;
   manageBodyScroll?: boolean;
   isClosing?: boolean;
   onClose: () => void;
-  onConfirm: (issueId: string, articleIds: string[]) => void;
+  onConfirm: (issueId: string, articleIds: string[], externalArticles?: Article[]) => void;
 }
 
 const getMilestoneBadgeClass = (variant: Article['milestoneVariant']) =>
@@ -50,6 +53,8 @@ const ArticleLineupModal = ({
   title = 'Article Lineup',
   headerAction = 'close',
   initialArticleIds,
+  externalArticles,
+  enableAddMenu = headerAction === 'close',
   manageBodyScroll = true,
   isClosing = false,
   onClose,
@@ -59,6 +64,8 @@ const ArticleLineupModal = ({
   const [milestoneFilter, setMilestoneFilter] = useState('All');
   const [sortBy, setSortBy] = useState('acceptance-asc');
   const [selectedArticleIds, setSelectedArticleIds] = useState<Set<string>>(new Set());
+  const [externalArticlesState, setExternalArticlesState] = useState<Article[]>([]);
+  const [showAddNewArticleModal, setShowAddNewArticleModal] = useState(false);
   const [showMilestoneDropdown, setShowMilestoneDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showGoDownFab, setShowGoDownFab] = useState(false);
@@ -68,10 +75,11 @@ const ArticleLineupModal = ({
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const assignedSectionRef = useRef<HTMLDivElement>(null);
+  const availableSectionRef = useRef<HTMLDivElement>(null);
 
   const availableArticles = useMemo(
-    () => (issue ? ARTICLES_BY_JOURNAL[issue.journalId] ?? [] : []),
-    [issue],
+    () => (issue ? getLineupArticlesForJournal(issue.journalId, externalArticlesState) : []),
+    [externalArticlesState, issue],
   );
 
   const matchesArticleFilters = useCallback((article: Article) => {
@@ -134,17 +142,22 @@ const ArticleLineupModal = ({
     setShowGoUpFab(isViewingAssigned);
   }, [hasAssignedArticles, unassignedArticles.length]);
 
+  const initialArticleIdsKey = (initialArticleIds ?? issue?.assignedArticleIds ?? []).join('|');
+  const externalArticlesKey = (externalArticles ?? issue?.externalArticles ?? []).map(article => article.id).join('|');
+
   useEffect(() => {
     if (!isOpen || !issue) return;
     setSelectedArticleIds(new Set(initialArticleIds ?? issue.assignedArticleIds));
+    setExternalArticlesState(externalArticles ?? issue.externalArticles ?? []);
     setArticleSearch('');
     setMilestoneFilter('All');
     setSortBy('acceptance-asc');
     setShowMilestoneDropdown(false);
     setShowSortDropdown(false);
+    setShowAddNewArticleModal(false);
     setShowGoDownFab(false);
     setShowGoUpFab(false);
-  }, [initialArticleIds, isOpen, issue]);
+  }, [externalArticlesKey, initialArticleIdsKey, isOpen, issue?.id]);
 
   useEffect(() => {
     if (!isOpen || !manageBodyScroll) return;
@@ -179,7 +192,29 @@ const ArticleLineupModal = ({
     return () => cancelAnimationFrame(id);
   }, [isOpen, hasAssignedArticles, updateFabVisibility]);
 
+  const existingArticleIds = useMemo(
+    () => availableArticles.map(article => article.id),
+    [availableArticles],
+  );
+
+  const handleAddExternalArticle = useCallback((article: Article) => {
+    setExternalArticlesState(prev => [...prev.filter(existing => existing.id !== article.id), article]);
+    setSelectedArticleIds(prev => new Set([...prev, article.id]));
+  }, []);
+
   if (!isOpen || !issue) return null;
+
+  if (showAddNewArticleModal) {
+    return (
+      <AddNewArticleModal
+        isOpen
+        journalId={issue.journalId}
+        existingArticleIds={existingArticleIds}
+        onClose={() => setShowAddNewArticleModal(false)}
+        onAdd={handleAddExternalArticle}
+      />
+    );
+  }
 
   const clearLineupFilters = () => {
     setArticleSearch('');
@@ -212,18 +247,20 @@ const ArticleLineupModal = ({
     const orderedIds = availableArticles
       .filter(article => selectedArticleIds.has(article.id))
       .map(article => article.id);
-    onConfirm(issue.id, orderedIds);
+    onConfirm(issue.id, orderedIds, externalArticlesState);
     onClose();
   };
 
-  const renderEmptyState = (message: string) => (
+  const renderEmptyState = (message: string, showClearFilter = true) => (
     <div className="article-lineup-table-wrap article-lineup-table-empty" role="status">
       <div className="article-lineup-no-results">
-        <p>No results found</p>
+        <p>{showClearFilter ? 'No results found' : 'No articles available'}</p>
         <span>{message}</span>
-        <button type="button" onClick={clearLineupFilters}>
-          Clear filter
-        </button>
+        {showClearFilter && (
+          <button type="button" onClick={clearLineupFilters}>
+            Clear filter
+          </button>
+        )}
       </div>
     </div>
   );
@@ -247,7 +284,15 @@ const ArticleLineupModal = ({
           {articles.map(article => (
             <tr key={article.id}>
               <td>
-                <span className="article-lineup-id">{highlight(article.id, articleSearch)}</span>
+                <span
+                  className={
+                    article.source === 'external' && action === 'remove'
+                      ? 'article-lineup-id article-lineup-id--external'
+                      : 'article-lineup-id'
+                  }
+                >
+                  {highlight(article.id, articleSearch)}
+                </span>
               </td>
               <td className="article-lineup-type">{article.type}</td>
               <td className="article-lineup-content-cell">
@@ -279,37 +324,49 @@ const ArticleLineupModal = ({
               </td>
               <td className="article-lineup-pages">{article.pages}</td>
               <td>
-                <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
-                  {article.milestoneVariant === 'paused' ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M6 19h4V5H6v14Zm8-14v14h4V5h-4Z" fill="currentColor" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                      <mask
-                        id={`article-lineup-milestone-inprogress-mask-${article.id}-${action}`}
-                        style={{ maskType: 'alpha' }}
-                        maskUnits="userSpaceOnUse"
-                        x="0"
-                        y="0"
-                        width="14"
-                        height="14"
-                      >
-                        <rect width="14" height="14" fill="#D9D9D9" />
-                      </mask>
-                      <g mask={`url(#article-lineup-milestone-inprogress-mask-${article.id}-${action})`}>
-                        <path
-                          d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
-                          fill="currentColor"
-                        />
-                      </g>
-                    </svg>
-                  )}
-                  {article.milestone}
-                </span>
+                {article.source === 'external' && action === 'remove' ? (
+                  <span className="article-lineup-date">—</span>
+                ) : (
+                  <span className={getMilestoneBadgeClass(article.milestoneVariant)}>
+                    {article.milestoneVariant === 'paused' ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path d="M6 19h4V5H6v14Zm8-14v14h4V5h-4Z" fill="currentColor" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <mask
+                          id={`article-lineup-milestone-inprogress-mask-${article.id}-${action}`}
+                          style={{ maskType: 'alpha' }}
+                          maskUnits="userSpaceOnUse"
+                          x="0"
+                          y="0"
+                          width="14"
+                          height="14"
+                        >
+                          <rect width="14" height="14" fill="#D9D9D9" />
+                        </mask>
+                        <g mask={`url(#article-lineup-milestone-inprogress-mask-${article.id}-${action})`}>
+                          <path
+                            d="M2.479 10.675C2.10956 10.2375 1.81303 9.75622 1.58942 9.23122C1.36581 8.70622 1.22484 8.15691 1.1665 7.5833H2.36234C2.42067 8.00136 2.52762 8.4024 2.68317 8.78643C2.83873 9.17045 3.04289 9.52775 3.29567 9.8583L2.479 10.675ZM1.1665 6.41663C1.24428 5.84302 1.39012 5.29372 1.604 4.76872C1.81789 4.24372 2.10956 3.76247 2.479 3.32497L3.29567 4.14163C3.04289 4.47219 2.83873 4.82948 2.68317 5.21351C2.52762 5.59754 2.42067 5.99858 2.36234 6.41663H1.1665ZM6.38734 12.8041C5.81373 12.7458 5.26685 12.6073 4.74671 12.3885C4.22657 12.1698 3.74289 11.8805 3.29567 11.5208L4.11234 10.675C4.45262 10.9277 4.81234 11.1368 5.1915 11.3021C5.57067 11.4673 5.96928 11.5791 6.38734 11.6375V12.8041ZM4.1415 3.32497L3.29567 2.47913C3.75262 2.11941 4.24359 1.83018 4.76859 1.61143C5.29359 1.39268 5.84289 1.25413 6.4165 1.1958V2.36247C5.99845 2.4208 5.59741 2.53261 5.21338 2.69788C4.82935 2.86316 4.47206 3.07219 4.1415 3.32497ZM7.554 12.8041V11.6375C7.98178 11.5791 8.38769 11.4698 8.77171 11.3093C9.15574 11.1489 9.51789 10.9375 9.85817 10.675L10.704 11.5208C10.2471 11.8902 9.75366 12.1819 9.2238 12.3958C8.69393 12.6097 8.13734 12.7458 7.554 12.8041ZM9.88734 3.32497C9.54706 3.07219 9.18248 2.86316 8.79359 2.69788C8.4047 2.53261 8.00123 2.4208 7.58317 2.36247V1.1958C8.15678 1.25413 8.70852 1.39268 9.23838 1.61143C9.76824 1.83018 10.2568 2.11941 10.704 2.47913L9.88734 3.32497ZM11.5207 10.675L10.704 9.8583C10.9568 9.52775 11.1609 9.17045 11.3165 8.78643C11.4721 8.4024 11.579 8.00136 11.6373 7.5833H12.8332C12.7554 8.15691 12.6096 8.70622 12.3957 9.23122C12.1818 9.75622 11.8901 10.2375 11.5207 10.675ZM11.6373 6.41663C11.579 5.99858 11.4721 5.59754 11.3165 5.21351C11.1609 4.82948 10.9568 4.47219 10.704 4.14163L11.5207 3.32497C11.8901 3.76247 12.1866 4.24372 12.4103 4.76872C12.6339 5.29372 12.7748 5.84302 12.8332 6.41663H11.6373Z"
+                            fill="currentColor"
+                          />
+                        </g>
+                      </svg>
+                    )}
+                    {article.milestone}
+                  </span>
+                )}
               </td>
-              <td className="article-lineup-date">{formatDisplayDateTime(article.estimatedPublication)}</td>
-              <td className="article-lineup-date">{formatDisplayDateTime(article.acceptance)}</td>
+              <td className="article-lineup-date">
+                {article.source === 'external' && action === 'remove'
+                  ? '—'
+                  : formatDisplayDateTime(article.estimatedPublication)}
+              </td>
+              <td className="article-lineup-date">
+                {article.source === 'external' && action === 'remove'
+                  ? '—'
+                  : formatDisplayDateTime(article.acceptance)}
+              </td>
               <td className="article-lineup-action-cell">
                 {action === 'add' ? (
                   <button type="button" className="article-lineup-add-button" onClick={() => toggleArticle(article.id)}>
@@ -477,14 +534,39 @@ const ArticleLineupModal = ({
             </div>
           </div>
 
-          {unassignedArticles.length > 0 && (
-            <section className="article-lineup-section" aria-labelledby="available-articles-heading">
-              <h3 id="available-articles-heading" className="article-lineup-section-title">
-                Available Articles ({visibleAvailableArticles.length})
-              </h3>
+          {(enableAddMenu || unassignedArticles.length > 0) && (
+            <section
+              className="article-lineup-section"
+              aria-labelledby="available-articles-heading"
+              ref={availableSectionRef}
+            >
+              <div className="article-lineup-section-head">
+                <h3 id="available-articles-heading" className="article-lineup-section-title">
+                  Available Articles ({visibleAvailableArticles.length})
+                </h3>
+                {enableAddMenu && (
+                  <button
+                    type="button"
+                    className="article-lineup-add-trigger"
+                    onClick={() => setShowAddNewArticleModal(true)}
+                  >
+                    <span className="article-lineup-add-trigger-icon" aria-hidden>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 4.17v11.66M4.17 10h11.66" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    Add
+                  </button>
+                )}
+              </div>
               {visibleAvailableArticles.length > 0
                 ? renderArticleTable(visibleAvailableArticles, 'add')
-                : renderEmptyState('Nothing matches your search or milestone filter. Clear the filter to see all available articles.')}
+                : renderEmptyState(
+                    unassignedArticles.length > 0
+                      ? 'Nothing matches your search or milestone filter. Clear the filter to see all available articles.'
+                      : 'Use Add to add a new article processed outside the system.',
+                    unassignedArticles.length > 0,
+                  )}
             </section>
           )}
 

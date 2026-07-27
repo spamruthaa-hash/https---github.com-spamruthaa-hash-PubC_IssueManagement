@@ -6,6 +6,7 @@ import FolioReviewModal from '../components/FolioReviewModal';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Toast, { ToastData } from '../components/Toast';
+import type { Article } from '../data/articles';
 import { useIssues } from '../hooks/useIssues';
 import type {
   ArticleLineupRevision,
@@ -326,13 +327,14 @@ const MyTasks = ({ onLogout }: MyTasksProps) => {
     });
   };
 
-  const handleConfirmLineup = (id: string, articleIds: string[]) => {
+  const handleConfirmLineup = (id: string, articleIds: string[], externalArticles?: Article[]) => {
     if (articleIds.length === 0) return;
 
     const currentIssue = issues.find(issue => issue.id === id);
     const confirmedAt = new Date().toISOString();
     updateIssue(id, {
       assignedArticleIds: articleIds,
+      externalArticles,
       articleLineupStartedAt: confirmedAt,
       articleLineupRevisions: currentIssue ? getArticleLineupRevisions(currentIssue, confirmedAt) : [],
       articleLineupConfirmedAt: confirmedAt,
@@ -362,10 +364,11 @@ const MyTasks = ({ onLogout }: MyTasksProps) => {
     });
   };
 
-  const handleSaveFolioArrangement = (id: string, arrangement: FolioArrangement) => {
+  const handleSaveFolioArrangement = (id: string, arrangement: FolioArrangement, externalArticles?: Article[]) => {
     const currentIssue = issues.find(issue => issue.id === id);
     updateIssue(id, {
       folioArrangement: arrangement,
+      ...(externalArticles ? { externalArticles } : {}),
       folioCreationRevisions: currentIssue ? getFolioCreationRevisions(currentIssue, arrangement.submittedAt) : [],
       folioArrangementConfirmedAt: arrangement.submittedAt,
       folioArrangementConfirmedBy: arrangement.submittedBy,

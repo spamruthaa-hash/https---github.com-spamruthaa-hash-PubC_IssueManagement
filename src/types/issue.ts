@@ -2,6 +2,8 @@
  * Sequential milestones an issue moves through. The order here is the source of
  * truth for any "is this milestone before/after" logic.
  */
+import type { Article } from '../data/articles';
+
 export const ISSUE_MILESTONES = [
   'Article Lineup',
   'Folio Creation',
@@ -108,6 +110,8 @@ export interface Issue {
   issueType: IssueType;
   outputFormat: IssueOutputFormat;
   assignedArticleIds: string[];
+  /** Manually added articles kept only for this issue's lineup/folio. */
+  externalArticles?: Article[];
   articleLineupStartedAt?: string;
   articleLineupRevisions?: ArticleLineupRevision[];
   articleLineupConfirmedAt?: string;

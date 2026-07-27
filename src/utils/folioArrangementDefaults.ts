@@ -1,4 +1,4 @@
-import { ARTICLES_BY_JOURNAL, type Article } from '../data/articles';
+import { buildArticlesById, getLineupArticlesForJournal } from './lineupArticles';
 import type { FolioArrangementItem, FolioMatterType, Issue } from '../types/issue';
 
 const DEFAULT_REQUIRED_MATTER: FolioMatterType[] = ['coversheet', 'masthead', 'table-of-contents'];
@@ -19,13 +19,7 @@ const articleItem = (articleId: string): FolioArrangementItem => ({
 
 /** Default folio sequence used in Arrange Folio when nothing has been saved yet. */
 export const buildDefaultFolioArrangementItems = (issue: Issue): FolioArrangementItem[] => {
-  const articlesById = (ARTICLES_BY_JOURNAL[issue.journalId] ?? []).reduce<Record<string, Article>>(
-    (acc, article) => {
-      acc[article.id] = article;
-      return acc;
-    },
-    {},
-  );
+  const articlesById = buildArticlesById(getLineupArticlesForJournal(issue.journalId, issue.externalArticles));
 
   const articleItems = issue.assignedArticleIds
     .filter(articleId => articlesById[articleId])
