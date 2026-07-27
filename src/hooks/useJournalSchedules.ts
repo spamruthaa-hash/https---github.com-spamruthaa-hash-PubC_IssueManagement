@@ -12,8 +12,11 @@ import {
 } from '../utils/scheduleStorageMerge';
 import { getAllScheduleEntries } from '../data/mockScheduleEntries';
 import { loadSchedulesForDemo } from '../data/demoSchedule';
+import { getCurrentUserEmail, userScopedStorageKey } from '../utils/userStorageKey';
 
-const STORAGE_KEY = 'pubc.journal-schedules.v6';
+const STORAGE_KEY_BASE = 'pubc.journal-schedules.v6';
+
+const getStorageKey = (): string => userScopedStorageKey(STORAGE_KEY_BASE);
 
 const normalizeSchedule = (raw: unknown): JournalSchedule | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -33,7 +36,7 @@ const normalizeSchedule = (raw: unknown): JournalSchedule | null => {
 
 const readFromStorage = (): JournalSchedule[] => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(getStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -48,15 +51,16 @@ const readFromStorage = (): JournalSchedule[] => {
 
 const writeToStorage = (schedules: JournalSchedule[]) => {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
+    window.localStorage.setItem(getStorageKey(), JSON.stringify(schedules));
   } catch {
     // Storage failures are non-fatal — UI keeps working in-memory.
   }
 };
 
+/** Clears only the signed-in account's schedules; other accounts keep theirs. */
 export const clearStoredJournalSchedules = () => {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(getStorageKey());
   } catch {
     // ignore
   }
@@ -64,14 +68,20 @@ export const clearStoredJournalSchedules = () => {
 
 export const useJournalSchedules = () => {
   const [schedules, setSchedules] = useState<JournalSchedule[]>(() => readFromStorage());
+  const userEmail = getCurrentUserEmail();
 
   useEffect(() => {
     writeToStorage(schedules);
   }, [schedules]);
 
+  /** Reload from the account's own bucket when the signed-in user changes. */
+  useEffect(() => {
+    setSchedules(readFromStorage());
+  }, [userEmail]);
+
   useEffect(() => {
     const handler = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
+      if (event.key !== getStorageKey()) return;
       setSchedules(readFromStorage());
     };
     window.addEventListener('storage', handler);

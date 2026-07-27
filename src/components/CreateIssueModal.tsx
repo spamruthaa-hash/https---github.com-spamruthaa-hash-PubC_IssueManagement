@@ -2,6 +2,7 @@ import {
   useState,
   useRef,
   useEffect,
+  useMemo,
   FormEvent,
   type AnimationEvent as ReactAnimationEvent,
   type CSSProperties,
@@ -14,8 +15,14 @@ import {
   SORT_OPTIONS,
   type Article,
 } from '../data/articles';
+import { getCurrentUser } from '../auth/currentUser';
+import { isJaneDanEmail, isJohnDEmail } from '../data/users';
 import { JOURNALS as PRELOADED_JOURNALS, type Journal } from '../data/journals';
+import type { FolioArrangement, FolioArrangementItem, FolioFileAttachment, Issue } from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
+import FolioArrangeModal from './FolioArrangeModal';
+import FolioPreviewTable from './FolioPreviewTable';
+import { getFolioItemPageCount, recalculateFolioPageRanges } from '../utils/folioPageRanges';
 import './CreateIssueModal.css';
 
 interface CreateIssueModalProps {
@@ -43,9 +50,30 @@ export interface IssueFormData {
    *   - 'confirm' → user confirmed the lineup → milestone "Folio Creation"
    *   - 'draft'   → user saved as draft       → milestone "Article Lineup"
    *   - 'proceed' → user skipped the lineup   → milestone "Article Lineup"
+   * For Jane's folio flow, the same values map to folio skip / draft / confirm.
    */
   lineupStatus?: 'draft' | 'confirm' | 'proceed';
+  /** Jane-only: arrangement captured during Create Issue Folio Creation step */
+  folioArrangement?: FolioArrangement;
+  /** John D-only: ready-made folio uploaded on the Create Issue form */
+  folioUpload?: FolioFileAttachment;
+  /**
+   * Which Create Issue path produced this issue, so the parent can derive milestones:
+   *   - 'lineup'       → Details → Article Lineup → Review
+   *   - 'folio'        → Details → Folio Creation → Review
+   *   - 'folio-upload' → single-step form with a ready-made folio
+   */
+  createFlow?: 'lineup' | 'folio' | 'folio-upload';
 }
+
+const FOLIO_UPLOAD_MAX_SIZE = 10 * 1024 * 1024;
+const FOLIO_UPLOAD_EXTENSIONS = ['doc', 'docx', 'pdf', 'xls', 'xlsx'];
+
+const formatUploadSize = (size: number): string => {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -88,6 +116,13 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const [addedArticleIds, setAddedArticleIds] = useState<Set<string>>(new Set());
   /** Review banner + stepper: lineup draft / confirm / skipped (Proceed) — Figma 300:75313 / 301:77171 / 301:77634 */
   const [reviewBannerVariant, setReviewBannerVariant] = useState<'draft' | 'confirm' | 'proceed'>('draft');
+  /** Jane folio create-flow: arrangement captured in step 2 */
+  const [pendingFolioArrangement, setPendingFolioArrangement] = useState<FolioArrangement | undefined>(undefined);
+  /** John D single-step create flow: ready-made folio attached to the form */
+  const [folioUpload, setFolioUpload] = useState<FolioFileAttachment | null>(null);
+
+  const isJaneFlow = isJaneDanEmail(getCurrentUser()?.email);
+  const isJohnDFlow = isJohnDEmail(getCurrentUser()?.email);
 
   const journalDropdownRef = useRef<HTMLDivElement>(null);
   const monthDropdownRef = useRef<HTMLDivElement>(null);
@@ -95,6 +130,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const assignedSectionRef = useRef<HTMLDivElement>(null);
+  const folioUploadInputRef = useRef<HTMLInputElement>(null);
 
   const [showGoDownFab, setShowGoDownFab] = useState(false);
   const [showGoUpFab, setShowGoUpFab] = useState(false);
@@ -204,6 +240,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     setMilestoneFilter('All');
     setSortBy('acceptance-asc');
     setReviewBannerVariant('draft');
+    setPendingFolioArrangement(undefined);
+    clearFolioUpload();
   };
 
   /** Fires when the overlay's enter/leave animation ends — we only react to the leave. */
@@ -260,6 +298,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     if (!formData.issueCloseDate) newErrors.issueCloseDate = 'Issue Close Date is required';
     if (!formData.issueType) newErrors.issueType = 'Issue Type is required';
     if (!formData.outputFormat) newErrors.outputFormat = 'Output Format is required';
+    if (isJohnDFlow && !folioUpload) newErrors.folioUpload = 'Folio file is required';
     if (formData.publicationDate && formData.issueCloseDate) {
       const pubDate = new Date(formData.publicationDate);
       const closeDate = new Date(formData.issueCloseDate);
@@ -271,9 +310,129 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
     return Object.keys(newErrors).length === 0;
   };
 
+  const clearFolioUpload = () => {
+    setFolioUpload(current => {
+      if (current?.objectUrl) URL.revokeObjectURL(current.objectUrl);
+      return null;
+    });
+    if (folioUploadInputRef.current) folioUploadInputRef.current.value = '';
+  };
+
+  const handleFolioUploadFile = (file?: File | null) => {
+    if (!file) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!FOLIO_UPLOAD_EXTENSIONS.includes(extension)) {
+      setErrors(prev => ({ ...prev, folioUpload: 'Upload a DOCX, PDF, or XLSX file.' }));
+      return;
+    }
+    if (file.size > FOLIO_UPLOAD_MAX_SIZE) {
+      setErrors(prev => ({ ...prev, folioUpload: 'File is larger than 10 MB.' }));
+      return;
+    }
+
+    setFolioUpload(current => {
+      if (current?.objectUrl) URL.revokeObjectURL(current.objectUrl);
+      return {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        objectUrl: URL.createObjectURL(file),
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: getCurrentUser()?.name ?? 'John D',
+      };
+    });
+    setErrors(prev => ({ ...prev, folioUpload: '' }));
+  };
+
   const handleNextStep = (e: FormEvent) => {
     e.preventDefault();
-    if (validateForm()) setCurrentStep(2);
+    if (!validateForm()) return;
+
+    // John D creates the issue straight from the form; folio preparation starts immediately.
+    if (isJohnDFlow) {
+      onSubmit({
+        ...formData,
+        selectedArticles: [],
+        lineupAction: 'create-issue',
+        createFlow: 'folio-upload',
+        folioUpload: folioUpload ?? undefined,
+      });
+      handleClose();
+      return;
+    }
+
+    setCurrentStep(2);
+  };
+
+  const articlesFromFolio = (arrangement?: FolioArrangement): Article[] => {
+    if (!arrangement) return [];
+    const pool = ARTICLES_BY_JOURNAL[formData.journal] || [];
+    const byId = new Map(pool.map(a => [a.id, a]));
+    return arrangement.items
+      .filter((item): item is Extract<FolioArrangementItem, { kind: 'article' }> => item.kind === 'article')
+      .map(item => byId.get(item.articleId))
+      .filter((article): article is Article => Boolean(article));
+  };
+
+  const janeDraftIssue = useMemo((): Issue | null => {
+    if (!isJaneFlow || !formData.journal) return null;
+    const acronym = PRELOADED_JOURNALS.find(j => j.id === formData.journal)?.acronym ?? '';
+    const folioArticles = articlesFromFolio(pendingFolioArrangement);
+    return {
+      id: 'create-issue-draft',
+      journalId: formData.journal,
+      journalAcronym: acronym,
+      volume: formData.volume || '0',
+      issue: formData.issue || '0',
+      issueTitle: formData.issueTitle,
+      coverMonth: formData.coverMonth,
+      publicationDate: formData.publicationDate,
+      issueCloseDate: formData.issueCloseDate,
+      issueType: formData.issueType === 'special' ? 'special' : 'regular',
+      outputFormat:
+        formData.outputFormat === 'print' || formData.outputFormat === 'online' || formData.outputFormat === 'both'
+          ? formData.outputFormat
+          : 'online',
+      assignedArticleIds: folioArticles.map(a => a.id),
+      folioArrangement: pendingFolioArrangement,
+      milestone: 'Folio Creation',
+      status: 'in-progress',
+      createdAt: new Date().toISOString(),
+    };
+    // articlesFromFolio depends on formData.journal + pendingFolioArrangement
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJaneFlow, formData, pendingFolioArrangement]);
+
+  /** Read-only folio data for Jane's review step. */
+  const folioArticlesById = useMemo(() => {
+    const pool = ARTICLES_BY_JOURNAL[formData.journal] || [];
+    return pool.reduce<Record<string, Article>>((acc, article) => {
+      acc[article.id] = article;
+      return acc;
+    }, {});
+  }, [formData.journal]);
+
+  const folioPreviewItems = useMemo(
+    () => recalculateFolioPageRanges(pendingFolioArrangement?.items ?? [], folioArticlesById),
+    [folioArticlesById, pendingFolioArrangement],
+  );
+
+  const folioPreviewArticleCount = folioPreviewItems.filter(item => item.kind === 'article').length;
+  const folioPreviewPagesAdded = folioPreviewItems.reduce(
+    (sum, item) => sum + getFolioItemPageCount(item, folioArticlesById),
+    0,
+  );
+
+  const finishJaneFolioStep = (
+    status: 'draft' | 'confirm' | 'proceed',
+    arrangement?: FolioArrangement,
+  ) => {
+    const folioArticles = articlesFromFolio(arrangement);
+    setPendingFolioArrangement(arrangement);
+    setAddedArticleIds(new Set(folioArticles.map(a => a.id)));
+    setReviewBannerVariant(status);
+    setCurrentStep(3);
   };
 
   const submitLineupStep = (lineupAction: IssueFormData['lineupAction']) => {
@@ -307,9 +466,11 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const handleCreateIssueFromReview = () => {
     onSubmit({
       ...formData,
-      selectedArticles: addedArticles,
+      selectedArticles: isJaneFlow ? articlesFromFolio(pendingFolioArrangement) : addedArticles,
       lineupAction: 'create-issue',
       lineupStatus: reviewBannerVariant,
+      folioArrangement: isJaneFlow && reviewBannerVariant !== 'proceed' ? pendingFolioArrangement : undefined,
+      createFlow: isJaneFlow ? 'folio' : 'lineup',
     });
     handleClose();
   };
@@ -321,6 +482,10 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   };
 
   const goToEditLineup = () => {
+    setCurrentStep(2);
+  };
+
+  const goToEditFolio = () => {
     setCurrentStep(2);
   };
 
@@ -385,7 +550,8 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
   const isFormComplete =
     formData.journal && formData.volume && formData.issue &&
     formData.coverMonth && formData.publicationDate && formData.issueCloseDate &&
-    formData.issueType && formData.outputFormat;
+    formData.issueType && formData.outputFormat &&
+    (!isJohnDFlow || Boolean(folioUpload));
 
   const renderStepper = () => {
     const skippedLineupReview = currentStep === 3 && reviewBannerVariant === 'proceed';
@@ -428,7 +594,9 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
             {step2Active ? <IconActive /> : step2Done ? <IconComplete /> : <IconPending />}
           </div>
           <div className="stepper-label-wrapper">
-            <span className={`stepper-label ${step2Active || step2Done ? 'stepper-label-active' : ''}`}>Article Lineup</span>
+            <span className={`stepper-label ${step2Active || step2Done ? 'stepper-label-active' : ''}`}>
+              {isJaneFlow ? 'Folio Creation' : 'Article Lineup'}
+            </span>
             <span className="stepper-optional">Optional</span>
           </div>
         </div>
@@ -480,7 +648,7 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
         {currentStep === 1 && (
           <form onSubmit={handleNextStep} className="modal-form modal-step-enter">
           <div className="form-content">
-              {renderStepper()}
+              {!isJohnDFlow && renderStepper()}
 
               {/* Journal */}
             <div className="form-field">
@@ -602,16 +770,92 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
               </div>
               {errors.outputFormat && <span className="error-message">{errors.outputFormat}</span>}
             </div>
+
+            {/* Upload Folio — John D creates the issue with a ready-made folio (Figma 526:9621) */}
+            {isJohnDFlow && (
+              <div className="form-field">
+                <label className="form-label">Upload Folio <span className="required">*</span></label>
+                <input
+                  ref={folioUploadInputRef}
+                  type="file"
+                  className="folio-upload-input"
+                  accept=".doc,.docx,.pdf,.xls,.xlsx"
+                  onChange={event => handleFolioUploadFile(event.target.files?.[0])}
+                />
+                {folioUpload ? (
+                  <div className="folio-upload-card">
+                    <div className="folio-upload-card-copy">
+                      <strong>{folioUpload.name}</strong>
+                      <span>
+                        {formatUploadSize(folioUpload.size)} . {formatDisplayDateTime(folioUpload.uploadedAt)} . Uploaded by{' '}
+                        {folioUpload.uploadedBy}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="folio-upload-remove"
+                      aria-label={`Remove ${folioUpload.name}`}
+                      onClick={clearFolioUpload}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path d="M6.4 19L5 17.6L10.6 12L5 6.4L6.4 5L12 10.6L17.6 5L19 6.4L13.4 12L19 17.6L17.6 19L12 13.4L6.4 19Z" fill="currentColor" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="folio-upload-dropzone"
+                    onClick={() => folioUploadInputRef.current?.click()}
+                    onDragOver={event => event.preventDefault()}
+                    onDrop={event => {
+                      event.preventDefault();
+                      handleFolioUploadFile(event.dataTransfer.files?.[0]);
+                    }}
+                  >
+                    <span className="folio-upload-dropzone-main">
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                        <path d="M10 13.33V4.17m0 0L6.67 7.5M10 4.17l3.33 3.33M5 15.83h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span>Drag and drop file or <u>Browse</u></span>
+                    </span>
+                    <small>DOCX, PDF, or XLSX. Max. file size: 10 MB.</small>
+                  </button>
+                )}
+                {errors.folioUpload && <span className="error-message">{errors.folioUpload}</span>}
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">
-              <button type="submit" className="submit-button" disabled={!isFormComplete}>Next</button>
+              <button type="submit" className="submit-button" disabled={!isFormComplete}>
+                {isJohnDFlow ? 'Create' : 'Next'}
+              </button>
             </div>
           </form>
         )}
 
+        {/* ── STEP 2 (Jane): Folio Creation as an in-modal stage ── */}
+        {currentStep === 2 && isJaneFlow && janeDraftIssue && (
+          <div className="modal-form modal-form-folio-step modal-step-enter">
+            <div className="folio-step-stepper">{renderStepper()}</div>
+            <FolioArrangeModal
+              embedded
+              isOpen={true}
+              issue={janeDraftIssue}
+              onClose={() => setCurrentStep(1)}
+              onSave={(_issueId, arrangement) => finishJaneFolioStep('confirm', arrangement)}
+              createWizard={{
+                onBack: () => setCurrentStep(1),
+                onProceed: () => finishJaneFolioStep('proceed'),
+                onSaveDraft: (_issueId, arrangement) => finishJaneFolioStep('draft', arrangement),
+              }}
+            />
+          </div>
+        )}
+
         {/* ── STEP 2 ── */}
-        {currentStep === 2 && (
+        {currentStep === 2 && !isJaneFlow && (
           <div
             className="modal-form modal-form-relative modal-form-lineup modal-step-enter"
             style={
@@ -1162,7 +1406,35 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                 </div>
               </section>
 
-              {reviewBannerVariant !== 'proceed' && (
+              {isJaneFlow && reviewBannerVariant !== 'proceed' && (
+                <section className="review-section review-folio-section" aria-labelledby="review-saved-folio-heading">
+                  <div className="review-section-head">
+                    <h3 id="review-saved-folio-heading" className="review-section-title">
+                      {reviewBannerVariant === 'confirm' ? 'Confirmed Folio' : 'Saved Folio'}
+                    </h3>
+                    <button type="button" className="review-edit-btn" onClick={goToEditFolio}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.004 1.004 0 0 0 0-1.41l-2.34-2.34a1.004 1.004 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      Edit Folio
+                    </button>
+                  </div>
+
+                  <div className="review-folio-stats" role="status">
+                    <span><strong>{folioPreviewArticleCount}</strong> Articles</span>
+                    <span><strong>{PAGE_BUDGET}</strong> Issue budget</span>
+                    <span><strong>{folioPreviewPagesAdded}</strong> Pages added</span>
+                    <span><strong>{Math.max(0, PAGE_BUDGET - folioPreviewPagesAdded)}</strong> Pages remaining</span>
+                  </div>
+
+                  <FolioPreviewTable items={folioPreviewItems} articlesById={folioArticlesById} />
+                </section>
+              )}
+
+              {!isJaneFlow && reviewBannerVariant !== 'proceed' && (
               <section className="review-section" aria-labelledby="review-saved-lineup-heading">
                 <div className="review-section-head">
                   <h3 id="review-saved-lineup-heading" className="review-section-title">
@@ -1326,11 +1598,19 @@ const CreateIssueModal = ({ isOpen, onClose, onSubmit }: CreateIssueModalProps) 
                   />
                 </svg>
                 <p className="review-info-banner-text">
-                  {reviewBannerVariant === 'confirm'
-                    ? 'Creating this issue will confirm the article lineup and start folio creation.'
-                    : reviewBannerVariant === 'proceed'
-                      ? 'Creating this issue will save the issue details. You can create the article lineup after the issue is created.'
-                      : 'Creating this issue will save the existing article lineup. You can confirm the lineup after the issue is created.'}
+                  {isJaneFlow ? (
+                    reviewBannerVariant === 'confirm'
+                      ? "Creating this issue will confirm the folio and the next process 'Folio Preparation' will begin."
+                      : reviewBannerVariant === 'proceed'
+                        ? 'Creating this issue will save the issue details. You can create the folio after the issue is created.'
+                        : 'Creating this issue will save the existing folio. You can confirm the folio after the issue is created.'
+                  ) : (
+                    reviewBannerVariant === 'confirm'
+                      ? 'Creating this issue will confirm the article lineup and start folio creation.'
+                      : reviewBannerVariant === 'proceed'
+                        ? 'Creating this issue will save the issue details. You can create the article lineup after the issue is created.'
+                        : 'Creating this issue will save the existing article lineup. You can confirm the lineup after the issue is created.'
+                  )}
                 </p>
               </div>
               <div className="modal-footer">

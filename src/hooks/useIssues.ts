@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getJournalAcronym } from '../data/journals';
 import type { Issue } from '../types/issue';
+import { getCurrentUserEmail, userScopedStorageKey } from '../utils/userStorageKey';
 
-const STORAGE_KEY = 'pubc.issues.v3';
+const STORAGE_KEY_BASE = 'pubc.issues.v3';
+
+const getStorageKey = (): string => userScopedStorageKey(STORAGE_KEY_BASE);
 
 const normalizeIssue = (raw: unknown): Issue | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -38,7 +41,7 @@ const normalizeIssue = (raw: unknown): Issue | null => {
 
 const readFromStorage = (): Issue[] => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(getStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -52,15 +55,16 @@ const readFromStorage = (): Issue[] => {
 
 const writeToStorage = (issues: Issue[]) => {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(issues));
+    window.localStorage.setItem(getStorageKey(), JSON.stringify(issues));
   } catch {
     // Storage failures (private mode, quota) are non-fatal — UI keeps working in-memory.
   }
 };
 
+/** Clears only the signed-in account's issues; other accounts keep theirs. */
 export const clearStoredIssues = () => {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(getStorageKey());
   } catch {
     // ignore
   }
@@ -68,15 +72,21 @@ export const clearStoredIssues = () => {
 
 export const useIssues = () => {
   const [issues, setIssues] = useState<Issue[]>(() => readFromStorage());
+  const userEmail = getCurrentUserEmail();
 
   useEffect(() => {
     writeToStorage(issues);
   }, [issues]);
 
+  /** Reload from the account's own bucket when the signed-in user changes. */
+  useEffect(() => {
+    setIssues(readFromStorage());
+  }, [userEmail]);
+
   /** Cross-tab sync: pick up changes made in another tab of the same browser. */
   useEffect(() => {
     const handler = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
+      if (event.key !== getStorageKey()) return;
       setIssues(readFromStorage());
     };
     window.addEventListener('storage', handler);

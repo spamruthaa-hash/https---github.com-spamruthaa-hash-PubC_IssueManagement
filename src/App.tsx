@@ -8,6 +8,7 @@ import IssueDetails from './pages/IssueDetails';
 import MyTasks from './pages/MyTasks';
 import { clearStoredJournalSchedules } from './hooks/useJournalSchedules';
 import { clearStoredIssues } from './hooks/useIssues';
+import { clearCurrentUser } from './auth/currentUser';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,8 +21,10 @@ function App() {
     setIsAuthenticated(false);
     // Per product requirement: created issues and uploaded schedules persist across
     // reloads but are wiped when the user signs out so the next session starts fresh.
+    // Must run before clearCurrentUser — the storage keys are scoped to that account.
     clearStoredIssues();
     clearStoredJournalSchedules();
+    clearCurrentUser();
   };
 
   return (

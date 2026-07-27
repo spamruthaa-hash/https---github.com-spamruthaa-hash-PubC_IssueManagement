@@ -19,6 +19,7 @@ import {
   listPrematureScheduleIssueIds,
 } from '../utils/scheduleIssueSync';
 import { getJournalAcronym } from '../data/journals';
+import { getMockNowIso } from '../utils/mockToday';
 import type { Issue, IssueMilestone } from '../types/issue';
 import './Issues.css';
 
@@ -157,7 +158,9 @@ const Issues = ({ onLogout }: IssuesProps) => {
     }
 
     const journalAcronym = getJournalAcronym(data.journal);
-    const createdAt = new Date().toISOString();
+    const createdAt = getMockNowIso();
+    const isJaneFolioFlow = data.createFlow === 'folio';
+    const isFolioUploadFlow = data.createFlow === 'folio-upload';
     const scheduleKey = { journalId: data.journal, volume: data.volume, issue: data.issue };
     const existingFromSchedule = findIssueForScheduleEntry(
       {
@@ -186,9 +189,26 @@ const Issues = ({ onLogout }: IssuesProps) => {
       issueType: data.issueType,
       outputFormat: data.outputFormat,
       assignedArticleIds: (data.selectedArticles ?? []).map(a => a.id),
-      articleLineupConfirmedAt: data.lineupStatus === 'confirm' ? createdAt : undefined,
-      articleLineupConfirmedBy: data.lineupStatus === 'confirm' ? 'John Doe' : undefined,
-      milestone: milestoneFromLineupStatus(data.lineupStatus),
+      // Jane Dan create flow replaces "Article Lineup" with inline Folio Creation.
+      // We store folio arrangement directly and set the milestone accordingly.
+      articleLineupConfirmedAt: !isJaneFolioFlow && data.lineupStatus === 'confirm' ? createdAt : undefined,
+      articleLineupConfirmedBy: !isJaneFolioFlow && data.lineupStatus === 'confirm'
+        ? 'John Doe'
+        : undefined,
+      folioArrangement: isJaneFolioFlow ? data.folioArrangement : undefined,
+      folioArrangementConfirmedAt: isJaneFolioFlow && data.lineupStatus === 'confirm' ? createdAt : undefined,
+      folioArrangementConfirmedBy: isJaneFolioFlow && data.lineupStatus === 'confirm'
+        ? data.folioArrangement?.submittedBy ?? 'John Doe'
+        : undefined,
+      // John D uploads a ready-made folio, so the issue opens straight into Folio Preparation.
+      folioUpload: isFolioUploadFlow ? data.folioUpload : undefined,
+      folioPreparationStartedAt:
+        isFolioUploadFlow || (isJaneFolioFlow && data.lineupStatus === 'confirm') ? createdAt : undefined,
+      milestone: isFolioUploadFlow
+        ? 'Folio Preparation'
+        : isJaneFolioFlow
+          ? (data.lineupStatus === 'confirm' ? 'Folio Preparation' : 'Folio Creation')
+          : milestoneFromLineupStatus(data.lineupStatus),
       status: 'in-progress',
       createdAt,
     };

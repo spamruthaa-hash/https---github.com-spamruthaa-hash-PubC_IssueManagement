@@ -1,5 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authenticateUser } from '../data/users';
+import { setCurrentUser } from '../auth/currentUser';
 import './Login.css';
 
 interface LoginProps {
@@ -28,7 +30,9 @@ const Login = ({ onLogin }: LoginProps) => {
 
     // Mock authentication
     setTimeout(() => {
-      if (email === 'johndoe@publisher.com' && password === 'admin') {
+      const user = authenticateUser(email, password);
+      if (user) {
+        setCurrentUser(user);
         onLogin();
         navigate('/dashboard');
       } else {

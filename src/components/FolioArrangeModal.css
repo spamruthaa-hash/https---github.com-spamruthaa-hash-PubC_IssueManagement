@@ -10,6 +10,40 @@
   font-family: 'Source Sans Pro', sans-serif;
 }
 
+/* Embedded as a Create Issue wizard stage: no dialog chrome, fills the step area. */
+.folio-arrange-embedded,
+.folio-arrange-inline {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  font-family: 'Source Sans Pro', sans-serif;
+  color: #35424d;
+}
+
+.folio-arrange-inline .folio-arrange-body {
+  padding-top: 0;
+}
+
+.folio-arrange-inline-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.folio-add-item-overlay--standalone {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(39, 40, 51, 0.4);
+}
+
 .folio-arrange-modal {
   width: min(1040px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
@@ -1154,6 +1188,19 @@ button.folio-arrange-file-action:hover:not(:disabled) {
   background: #ffffff;
 }
 
+.folio-arrange-footer--wizard {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.folio-arrange-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .folio-arrange-validation {
   margin: 0;
   margin-right: auto;
@@ -1163,6 +1210,54 @@ button.folio-arrange-file-action:hover:not(:disabled) {
 
 .folio-arrange-validation {
   color: #990800;
+}
+
+/* Confirm Folio is disabled until the folio is complete — hover explains why. */
+.folio-confirm-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Disabled buttons swallow hover, so let the wrapper receive it instead. */
+.folio-confirm-wrap .folio-arrange-primary:disabled {
+  pointer-events: none;
+}
+
+.folio-confirm-wrap:has(.folio-arrange-primary:disabled) {
+  cursor: not-allowed;
+}
+
+.folio-confirm-tooltip {
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 120;
+  max-width: 280px;
+  padding: 8px 10px;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 16px;
+  background: #2a353e;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.folio-confirm-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 24px;
+  border: 5px solid transparent;
+  border-top-color: #2a353e;
+}
+
+.folio-confirm-wrap:hover .folio-confirm-tooltip,
+.folio-confirm-wrap:focus-within .folio-confirm-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .folio-arrange-primary,

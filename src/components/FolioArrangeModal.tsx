@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { getCurrentUser } from '../auth/currentUser';
 import { ARTICLES_BY_JOURNAL, PAGE_BUDGET, type Article } from '../data/articles';
 import type { FolioArrangement, FolioArrangementItem, FolioFileAttachment, FolioMatterType, Issue } from '../types/issue';
 import ArticleLineupModal from './ArticleLineupModal';
@@ -16,15 +17,27 @@ import {
 import FolioArrangeTable, { FOLIO_MATTER_LABELS, requiresFolioFile } from './FolioArrangeTable';
 import './FolioArrangeModal.css';
 
-const CURRENT_USER_NAME = 'John Doe';
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const SUPPORTED_FILE_EXTENSIONS = ['doc', 'docx', 'pdf', 'xls', 'xlsx'];
+
+/** A folio cannot be confirmed with fewer articles than this. */
+const MIN_FOLIO_CONFIRM_ARTICLES = 4;
+
+export interface FolioArrangeCreateWizardHandlers {
+  onBack: () => void;
+  onProceed: () => void;
+  onSaveDraft: (issueId: string, arrangement: FolioArrangement) => void;
+}
 
 interface FolioArrangeModalProps {
   isOpen: boolean;
   issue: Issue | null;
   onClose: () => void;
   onSave: (issueId: string, arrangement: FolioArrangement) => void;
+  /** Optional Create Issue step (Jane): Back / Proceed / Save draft / Confirm Folio */
+  createWizard?: FolioArrangeCreateWizardHandlers;
+  /** Render inline as a wizard stage instead of its own centered dialog. */
+  embedded?: boolean;
 }
 
 const ADD_ITEM_MATTER_TYPES = Object.keys(FOLIO_MATTER_LABELS) as FolioMatterType[];
@@ -118,7 +131,7 @@ const buildDefaultItems = (issue: Issue): FolioArrangementItem[] => {
   return buildDefaultFolioArrangementItems(issue);
 };
 
-const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModalProps) => {
+const FolioArrangeModal = ({ isOpen, issue, onClose, onSave, createWizard, embedded = false }: FolioArrangeModalProps) => {
   const [items, setItems] = useState<FolioArrangementItem[]>([]);
   const [validationMessage, setValidationMessage] = useState('');
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -150,12 +163,31 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
     [items],
   );
   const articleCount = items.filter(item => item.kind === 'article').length;
+  const defaultFolioItemIds = useMemo(
+    () => (issue ? buildDefaultFolioArrangementItems(issue).map(item => item.id).join('|') : ''),
+    [issue],
+  );
+  /** True once the user has actually put something of their own into the folio. */
+  const hasFolioContent = items.length > 0 && (
+    articleCount > 0
+    || items.some(item => item.kind === 'matter' && Boolean(item.file))
+    || items.map(item => item.id).join('|') !== defaultFolioItemIds
+  );
   const pagesAdded = items.reduce(
     (sum, item) => sum + getFolioItemPageCount(item, articlesById),
     0,
   );
   const missingRequiredLabels = getMissingRequiredUploadLabels(items);
   const canSubmit = missingRequiredLabels.length === 0;
+  const needsMoreArticles = articleCount < MIN_FOLIO_CONFIRM_ARTICLES;
+  const confirmBlockedReason = missingRequiredLabels.length > 0
+    ? needsMoreArticles
+      ? `Upload ${missingRequiredLabels.join(', ')} and add necessary articles for confirming the folio`
+      : `Upload ${missingRequiredLabels.join(', ')} for confirming the folio`
+    : needsMoreArticles
+      ? 'Add necessary articles for confirming the folio'
+      : '';
+  const canConfirmFolio = confirmBlockedReason === '';
   const availableAddItemTypes = useMemo(() => {
     const pool = addItemModalTarget?.allowedCategories ?? ADD_ITEM_MATTER_TYPES;
     return pool.filter(type => (
@@ -198,12 +230,13 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
   }, [articlesById, items]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    // Embedded mode lives inside another dialog that already locks page scroll.
+    if (!isOpen || embedded) return;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [embedded, isOpen]);
 
   useEffect(() => {
     if (!isAddMenuOpen) return;
@@ -338,7 +371,7 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
       pageCount,
       objectUrl,
       uploadedAt: new Date().toISOString(),
-      uploadedBy: CURRENT_USER_NAME,
+      uploadedBy: getCurrentUser()?.name ?? 'John Doe',
     };
   };
 
@@ -525,34 +558,65 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
       setValidationMessage(`Upload files for: ${missingRequiredLabels.join(', ')}.`);
       return;
     }
+    if (createWizard && !canConfirmFolio) {
+      setValidationMessage(confirmBlockedReason);
+      return;
+    }
     setValidationMessage('');
+    const actor = getCurrentUser()?.name ?? 'John Doe';
     onSave(issue.id, {
       items: removeTemporaryFileUrls(items),
       submittedAt: new Date().toISOString(),
-      submittedBy: CURRENT_USER_NAME,
+      submittedBy: actor,
     });
+    if (!createWizard) {
+      onClose();
+    }
+  };
+
+  const buildCurrentArrangement = (): FolioArrangement => ({
+    items: removeTemporaryFileUrls(items),
+    submittedAt: new Date().toISOString(),
+    submittedBy: getCurrentUser()?.name ?? 'John Doe',
+  });
+
+  const handleWizardSaveDraft = () => {
+    if (!createWizard) return;
+    setValidationMessage('');
+    createWizard.onSaveDraft(issue.id, buildCurrentArrangement());
+  };
+
+  const handleWizardClose = () => {
+    if (createWizard) {
+      createWizard.onBack();
+      return;
+    }
     onClose();
   };
 
   return (
-    <div className="folio-arrange-overlay" role="presentation">
-      {!addItemModalTarget && (
+    <div className={embedded ? 'folio-arrange-embedded' : 'folio-arrange-overlay'} role="presentation">
+      {(embedded || !addItemModalTarget) && (
         <section
           className={[
-            'folio-arrange-modal',
+            embedded ? 'folio-arrange-inline' : 'folio-arrange-modal',
             isReturningFromAddItem ? 'folio-arrange-modal--returning' : '',
             isReturningFromAddArticle ? 'folio-arrange-modal--article-returning' : '',
           ].filter(Boolean).join(' ')}
-          role="dialog"
-          aria-modal="true"
+          role={embedded ? 'group' : 'dialog'}
+          aria-modal={embedded ? undefined : true}
           aria-labelledby="folio-arrange-title"
         >
-          <header className="folio-arrange-header">
-            <h2 id="folio-arrange-title">Arrange Folio</h2>
-            <button type="button" className="folio-arrange-icon-button" aria-label="Close arrange folio" onClick={onClose}>
-              <span aria-hidden>×</span>
-            </button>
-          </header>
+          {embedded ? (
+            <h2 id="folio-arrange-title" className="folio-arrange-inline-heading">Folio Creation</h2>
+          ) : (
+            <header className="folio-arrange-header">
+              <h2 id="folio-arrange-title">{createWizard ? 'Folio Creation' : 'Arrange Folio'}</h2>
+              <button type="button" className="folio-arrange-icon-button" aria-label="Close arrange folio" onClick={handleWizardClose}>
+                <span aria-hidden>×</span>
+              </button>
+            </header>
+          )}
 
           <main className="folio-arrange-body">
             <div className="folio-arrange-toolbar">
@@ -614,19 +678,63 @@ const FolioArrangeModal = ({ isOpen, issue, onClose, onSave }: FolioArrangeModal
             </div>
           </footer>
 
-          <div className="folio-arrange-footer">
-            {validationMessage && (
+          <div className={`folio-arrange-footer${createWizard ? ' folio-arrange-footer--wizard' : ''}`}>
+            {validationMessage && !createWizard && (
               <p className="folio-arrange-validation" role="alert">{validationMessage}</p>
             )}
-            <button type="button" className="folio-arrange-primary" disabled={!canSubmit} onClick={handleSubmit}>
-              Submit
-            </button>
+            {createWizard ? (
+              <>
+                <button type="button" className="folio-arrange-secondary" onClick={createWizard.onBack}>
+                  Back
+                </button>
+                <div className="folio-arrange-footer-actions">
+                  {validationMessage && (
+                    <p className="folio-arrange-validation" role="alert">{validationMessage}</p>
+                  )}
+                  {hasFolioContent ? (
+                    <>
+                      <button type="button" className="folio-arrange-secondary" onClick={handleWizardSaveDraft}>
+                        Save Folio as draft
+                      </button>
+                      <span className="folio-confirm-wrap">
+                        <button
+                          type="button"
+                          className="folio-arrange-primary"
+                          disabled={!canConfirmFolio}
+                          aria-describedby={canConfirmFolio ? undefined : 'folio-confirm-tooltip'}
+                          onClick={handleSubmit}
+                        >
+                          Confirm Folio
+                        </button>
+                        {!canConfirmFolio && (
+                          <span className="folio-confirm-tooltip" id="folio-confirm-tooltip" role="tooltip">
+                            {confirmBlockedReason}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  ) : (
+                    <button type="button" className="folio-arrange-primary" onClick={createWizard.onProceed}>
+                      Proceed
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <button type="button" className="folio-arrange-primary" disabled={!canSubmit} onClick={handleSubmit}>
+                Submit
+              </button>
+            )}
           </div>
         </section>
       )}
 
       {addItemModalTarget && (
-        <div className="folio-add-item-overlay" role="presentation" onMouseDown={() => handleCloseAddItemModal()}>
+        <div
+          className={`folio-add-item-overlay${embedded ? ' folio-add-item-overlay--standalone' : ''}`}
+          role="presentation"
+          onMouseDown={() => handleCloseAddItemModal()}
+        >
           <section
             className="folio-add-item-modal"
             role="dialog"

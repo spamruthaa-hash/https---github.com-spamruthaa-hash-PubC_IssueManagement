@@ -10,6 +10,8 @@ import {
   getScheduleMilestoneStatus,
   isScheduleMilestoneCompleted,
 } from './scheduleMilestoneStatus';
+import { getHiddenScheduleMilestoneKinds } from './userScheduleMilestones';
+import { getCurrentUser } from '../auth/currentUser';
 
 const ESTIMATED_MILESTONE_DAYS = 5;
 
@@ -447,6 +449,10 @@ export const listIssuesMissingForSchedule = (
     .map(entry => createIssueFromScheduleEntry(entry, referenceDate));
 };
 
+/** Schedule rows synced from Create Issue use this id prefix (see createScheduleEntryFromIssue). */
+export const isManualScheduleEntry = (entry: ScheduledIssueEntry): boolean =>
+  entry.id.startsWith('schedule-issue-');
+
 /** Remove auto-created issues that are not yet due (e.g. future creation date). */
 export const listPrematureScheduleIssueIds = (
   entries: ScheduledIssueEntry[],
@@ -458,6 +464,8 @@ export const listPrematureScheduleIssueIds = (
     .filter(issue => {
       const entry = entryByKey.get(scheduleEntryKey(issue));
       if (!entry) return false;
+      // User-created issues must never be auto-deleted by schedule sync.
+      if (isManualScheduleEntry(entry)) return false;
       return !isScheduleEntryReadyForIssue(entry, referenceDate);
     })
     .map(issue => issue.id);
@@ -502,9 +510,16 @@ export const getIssueTableMilestoneDisplay = (
     return { label, badgeStatus: 'completed' };
   }
 
-  const milestones = buildScheduleMilestonesFromIssue(issue);
+  // Steps the signed-in account skips shouldn't surface as its current milestone.
+  const hiddenKinds = getHiddenScheduleMilestoneKinds(getCurrentUser()?.email);
+  const allMilestones = buildScheduleMilestonesFromIssue(issue);
+  const milestones = hiddenKinds.length === 0
+    ? allMilestones
+    : allMilestones.filter(m => !hiddenKinds.includes(m.kind));
   const activeIndex = getActiveScheduleMilestoneIndex(issue, milestones, referenceDate);
-  const active = milestones[activeIndex] ?? milestones.find(m => m.kind === 'article-lineup') ?? milestones[0];
+  const active = milestones[activeIndex]
+    ?? milestones.find(m => m.kind === 'article-lineup')
+    ?? milestones[0];
 
   return {
     label: active.label,

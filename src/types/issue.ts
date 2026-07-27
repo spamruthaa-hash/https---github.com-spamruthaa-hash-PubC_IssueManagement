@@ -113,6 +113,8 @@ export interface Issue {
   articleLineupConfirmedAt?: string;
   articleLineupConfirmedBy?: string;
   folioArrangement?: FolioArrangement;
+  /** Ready-made folio supplied at issue creation, skipping lineup and folio creation. */
+  folioUpload?: FolioFileAttachment;
   folioCreationRevisions?: FolioCreationRevision[];
   folioArrangementConfirmedAt?: string;
   folioArrangementConfirmedBy?: string;

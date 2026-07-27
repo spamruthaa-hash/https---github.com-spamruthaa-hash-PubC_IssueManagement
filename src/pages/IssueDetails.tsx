@@ -7,6 +7,7 @@ import FolioReviewModal from '../components/FolioReviewModal';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Toast, { ToastData } from '../components/Toast';
+import { getCurrentUser } from '../auth/currentUser';
 import { useIssues } from '../hooks/useIssues';
 import type {
   ArticleLineupRevision,
@@ -19,6 +20,7 @@ import type {
   IssueType,
 } from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
+import { isJaneDanEmail, isJohnDEmail } from '../data/users';
 import './IssueDetails.css';
 
 interface IssueDetailsProps {
@@ -292,6 +294,8 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
 
   const issue = issues.find(i => i.id === issueId);
   const isIssueHistory = issue?.status === 'completed';
+  const isJaneFlow = isJaneDanEmail(getCurrentUser()?.email);
+  const isJohnDFlow = isJohnDEmail(getCurrentUser()?.email);
 
   useEffect(() => {
     setShowArticleLineupRevisions(false);
@@ -602,7 +606,14 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
 
   const timeline = useMemo(() => {
     if (!issue) return [];
-    const milestones = OUTPUT_FORMAT_MILESTONES[issue.outputFormat];
+    const hiddenMilestones: DetailMilestone[] = isJohnDFlow
+      ? ['Article Lineup', 'Folio Creation']
+      : isJaneFlow
+        ? ['Article Lineup']
+        : [];
+    const milestones = OUTPUT_FORMAT_MILESTONES[issue.outputFormat].filter(
+      m => !hiddenMilestones.includes(m),
+    );
     const base = getValidDate(issue.createdAt);
     const activeIndex = getActiveMilestoneIndex(issue, milestones);
     const hasLineupHistory = Boolean(issue.articleLineupConfirmedAt) || activeIndex > 0;
@@ -632,7 +643,7 @@ const IssueDetails = ({ onLogout }: IssueDetailsProps) => {
         state: index < activeIndex ? 'completed' : index === activeIndex ? 'active' : 'upcoming',
       };
     });
-  }, [issue]);
+  }, [issue, isJaneFlow, isJohnDFlow]);
 
   return (
     <div className="dashboard-container">

@@ -62,6 +62,8 @@ import {
   buildScheduleMilestoneTooltipData,
   type ScheduleMilestoneProgressActionKind,
 } from '../utils/scheduleMilestoneModal';
+import { applyUserScheduleMilestones } from '../utils/userScheduleMilestones';
+import { getCurrentUser } from '../auth/currentUser';
 
 import './IssueSchedule.css';
 
@@ -95,7 +97,8 @@ const generateToastId = (): string => {
   return `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 };
 
-const CURRENT_USER_NAME = 'John Doe';
+/** Who the schedule records as the actor — the signed-in account. */
+const getActorName = (): string => getCurrentUser()?.name ?? 'John Doe';
 
 const getOffsetWithinAncestor = (element: HTMLElement, ancestor: HTMLElement) => {
   let left = 0;
@@ -125,7 +128,7 @@ const getArticleLineupRevisions = (issue: Issue, submittedAt: string): ArticleLi
     startedAt: issue.articleLineupStartedAt ?? issue.createdAt,
     completedAt,
     submittedAt,
-    submittedBy: CURRENT_USER_NAME,
+    submittedBy: getActorName(),
     articleCount: issue.assignedArticleIds.length,
   };
 
@@ -141,7 +144,7 @@ const getFolioCreationRevisions = (issue: Issue, submittedAt: string): FolioCrea
     startedAt: issue.articleLineupConfirmedAt ?? issue.createdAt,
     completedAt,
     submittedAt,
-    submittedBy: CURRENT_USER_NAME,
+    submittedBy: getActorName(),
     itemCount: issue.folioArrangement?.items.length ?? 0,
   };
 
@@ -162,7 +165,7 @@ const getFolioPreparationRevisions = (
     completedAt: issue.folioPreparationConfirmedAt ?? submittedAt,
     reason,
     submittedAt,
-    submittedBy: CURRENT_USER_NAME,
+    submittedBy: getActorName(),
   };
 
   return [...(issue.folioPreparationRevisions ?? []), revision];
@@ -217,6 +220,8 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
   const { schedules } = useJournalSchedules();
 
   const { issues, updateIssue } = useIssues();
+
+  const currentUserEmail = getCurrentUser()?.email ?? null;
 
   const allEntries = useMemo(
     () => getCombinedScheduleEntries(schedules, issues),
@@ -277,8 +282,14 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
   }, [currentTimeIndicator]);
 
   const displayEntries = useMemo(
-    () => allEntries.map(entry => resolveScheduleEntryDisplay(entry, issues)),
-    [allEntries, issues],
+    () => allEntries.map(entry => {
+      const resolved = resolveScheduleEntryDisplay(entry, issues);
+      return {
+        ...resolved,
+        displayMilestones: applyUserScheduleMilestones(resolved.displayMilestones, currentUserEmail),
+      };
+    }),
+    [allEntries, currentUserEmail, issues],
   );
 
   const filteredEntries = useMemo(() => {
@@ -505,7 +516,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
           ? getArticleLineupRevisions(currentIssue, confirmedAt)
           : [],
         articleLineupConfirmedAt: confirmedAt,
-        articleLineupConfirmedBy: CURRENT_USER_NAME,
+        articleLineupConfirmedBy: getActorName(),
         folioArrangement: undefined,
         folioCreationRevisions: undefined,
         folioArrangementConfirmedAt: undefined,
@@ -585,7 +596,7 @@ const IssueSchedule = ({ onLogout }: IssueScheduleProps) => {
 
     updateIssue(progressModalIssue.id, {
       folioReviewConfirmedAt: reviewedAt,
-      folioReviewConfirmedBy: CURRENT_USER_NAME,
+      folioReviewConfirmedBy: getActorName(),
       printConfirmedAt: undefined,
       printConfirmedBy: undefined,
       onlinePublicationConfirmedAt: undefined,

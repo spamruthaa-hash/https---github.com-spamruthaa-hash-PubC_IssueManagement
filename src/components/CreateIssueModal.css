@@ -687,6 +687,155 @@
   min-height: min(640px, 82vh);
 }
 
+/* Upload Folio field — John D single-step create flow */
+.folio-upload-input {
+  display: none;
+}
+
+.folio-upload-dropzone {
+  width: 100%;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px;
+  color: #35424d;
+  background: #ffffff;
+  border: 1px dashed #c2c6ca;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.folio-upload-dropzone:hover,
+.folio-upload-dropzone:focus-visible {
+  background: #f6f7f7;
+  border-color: #1c40ca;
+  outline: none;
+}
+
+.folio-upload-dropzone-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #35424d;
+}
+
+.folio-upload-dropzone-main u {
+  color: #1c40ca;
+}
+
+.folio-upload-dropzone small {
+  color: #868e94;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.folio-upload-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #e3e4e5;
+  border-radius: 4px;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.folio-upload-card-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.folio-upload-card-copy strong {
+  overflow: hidden;
+  color: #35424d;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folio-upload-card-copy span {
+  color: #868e94;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.folio-upload-remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #35424d;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.folio-upload-remove:hover {
+  background: #f4f6f8;
+}
+
+/* Step 3 (Jane): read-only folio preview needs the full folio width */
+.modal-container:has(.review-folio-section) {
+  max-width: 1040px;
+}
+
+.review-folio-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-folio-stats span {
+  padding-left: 8px;
+  border-left: 1px solid #c2c6ca;
+  color: #5d6871;
+  font-size: 13px;
+  line-height: 24px;
+}
+
+.review-folio-stats span:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.review-folio-stats strong {
+  color: #35424d;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+/* Step 2 (Jane): Folio Creation rendered inline as a wizard stage */
+.modal-container:has(.modal-form-folio-step) {
+  max-width: 1040px;
+  height: min(680px, 90vh);
+}
+
+.modal-form-folio-step {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.folio-step-stepper {
+  flex-shrink: 0;
+  padding: 16px 24px;
+}
+
 .lineup-content {
   padding: 16px 24px 0;
   gap: 16px;

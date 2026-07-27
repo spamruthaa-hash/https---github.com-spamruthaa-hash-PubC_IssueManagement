@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getCurrentUser } from '../auth/currentUser';
 import './Header.css';
 
 interface HeaderProps {
@@ -9,6 +10,10 @@ interface HeaderProps {
 const Header = ({ onMenuClick, onLogout }: HeaderProps) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const currentUser = getCurrentUser();
+  const displayName = currentUser?.name ?? 'John Doe';
+  const displayEmail = currentUser?.email ?? 'johndoe@publisher.com';
+  const displayInitials = currentUser?.initials ?? 'JD';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,16 +93,16 @@ const Header = ({ onMenuClick, onLogout }: HeaderProps) => {
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && setShowDropdown(!showDropdown)}
           >
-            <span>JD</span>
+            <span>{displayInitials}</span>
           </div>
 
           {showDropdown && (
             <div className="user-dropdown">
               <div className="dropdown-item user-info">
-                <div className="user-info-avatar">JD</div>
+                <div className="user-info-avatar">{displayInitials}</div>
                 <div>
-                  <div className="user-info-name">John Doe</div>
-                  <div className="user-info-email">johndoe@publisher.com</div>
+                  <div className="user-info-name">{displayName}</div>
+                  <div className="user-info-email">{displayEmail}</div>
                 </div>
               </div>
               <div className="dropdown-divider"></div>

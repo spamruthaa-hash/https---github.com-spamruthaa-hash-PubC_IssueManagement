@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { ARTICLES_BY_JOURNAL, type Article } from '../data/articles';
 import type { FolioArrangementItem, FolioFileAttachment, Issue } from '../types/issue';
 import { formatDisplayDate, formatDisplayDateTime } from '../utils/dateFormat';
 import { FOLIO_MATTER_LABELS } from './FolioArrangeTable';
 import { getFolioArrangementItemsForDisplay } from '../utils/folioArrangementDefaults';
+import { buildRandomFolioArrangementItems } from '../utils/randomFolio';
 import {
   getFolioItemPageDisplay,
   recalculateFolioPageRanges,
@@ -87,13 +88,13 @@ const buildReviewFile = (
 const getOutputFileName = (issue: Issue): string =>
   `${sanitizeFilePart(issue.journalAcronym)}_${sanitizeFilePart(issue.volume)}_${sanitizeFilePart(issue.issue)}.pdf`;
 
-const buildReviewRows = (issue: Issue): ReviewRow[] => {
+const buildReviewRows = (issue: Issue, items?: FolioArrangementItem[]): ReviewRow[] => {
   const articlesById = (ARTICLES_BY_JOURNAL[issue.journalId] ?? []).reduce<Record<string, Article>>((acc, article) => {
     acc[article.id] = article;
     return acc;
   }, {});
   const rangedItems = recalculateFolioPageRanges(
-    getFolioArrangementItemsForDisplay(issue),
+    items ?? getFolioArrangementItemsForDisplay(issue),
     articlesById,
   );
 
@@ -228,9 +229,23 @@ const FolioReviewModal = ({ isOpen, issue, onClose, onApprove, onCorrectionSubmi
     }
   }, [isOpen]);
 
+  // Issues created with a ready-made folio have nothing to show, so generate one per opening.
+  const [generatedFolioSeed, setGeneratedFolioSeed] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) setGeneratedFolioSeed(seed => seed + 1);
+  }, [isOpen]);
+
+  const generatedFolioItems = useMemo(
+    () => (issue?.folioUpload ? buildRandomFolioArrangementItems(issue) : undefined),
+    // generatedFolioSeed re-rolls the folio each time the modal is opened
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [issue, generatedFolioSeed],
+  );
+
   if (!isOpen || !issue) return null;
 
-  const rows = buildReviewRows(issue);
+  const rows = buildReviewRows(issue, generatedFolioItems);
   const totalPages = rows.reduce((sum, row) => sum + (row.pages ?? 0), 0);
   const outputFileSize = `${Math.max(1, Math.ceil(totalPages / 8))} MB`;
   const outputTimestamp = issue.folioPreparationConfirmedAt ?? issue.folioArrangementConfirmedAt ?? issue.createdAt;
